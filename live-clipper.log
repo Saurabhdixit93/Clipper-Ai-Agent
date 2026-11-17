@@ -331,3 +331,9 @@
 2026-11-18 00:07:37,955 [info] live_clipper.recorder: Starting Streamlink: /Users/saurabhdixit/Anti-Clips/live-clipper/.venv/bin/streamlink --stdout --twitch-disable-ads https://www.twitch.tv/gaules 720p60
 2026-11-18 00:07:37,988 [info] live_clipper.recorder: Starting FFmpeg: ffmpeg -y -v warning -i pipe:0 -c copy -f segment -segment_time 10 -reset_timestamps 1 -strftime 1 -segment_list /Users/saurabhdixit/Anti-Clips/live-clipper/temp/segments_1794940657.csv -segment_list_type csv /Users/saurabhdixit/Anti-Clips/live-clipper/temp/chunk_%s.mp4
 2026-11-18 00:08:08,132 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -11.3 LUFS (baseline: -24.0 LUFS, spike: +12.7 dB)
+2026-11-18 00:10:35,156 [info] live_clipper.app: Stopping all services...
+2026-11-18 00:10:36,454 [info] live_clipper.recorder: Recording engine stopped
+2026-11-18 00:10:36,454 [warning] live_clipper.chat_monitor: Twitch IRC connection dropped: [Errno 9] Bad file descriptor
+2026-11-18 00:10:36,455 [info] live_clipper.chat_monitor: Chat monitor stopped
+2026-11-18 00:10:36,932 [info] live_clipper.worker: Background processing worker stopped
+2026-11-18 00:10:36,932 [info] live_clipper.app: Live Clipper stopped cleanly
