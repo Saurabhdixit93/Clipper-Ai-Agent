@@ -49,6 +49,10 @@ class TitleGenerator:
         channel_name: str
     ) -> Optional[Tuple[str, List[str]]]:
         """Query local Gemini CLI."""
+        if not self.gemini_bin:
+            return None
+        gemini_bin = str(self.gemini_bin)
+
         chat_sample = " | ".join(f"{m.username}: {m.message}" for m in chat_messages[-15:])
         prompt = (
             f"You are a short-form video editor for streamer {channel_name}. "
@@ -61,7 +65,7 @@ class TitleGenerator:
         )
 
         try:
-            cmd = [self.gemini_bin, prompt]
+            cmd = [gemini_bin, prompt]
             proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12, text=True)
             if proc.returncode == 0 and proc.stdout:
                 output = proc.stdout.strip()
@@ -136,4 +140,63 @@ class TitleGenerator:
 
         tags = [f"#{channel_name.lower()}", "#twitchclips", "#viral"]
         return title, tags
+
+    def generate_hook(
+        self,
+        transcript: str,
+        chat_messages: List[ChatMessage],
+        channel_name: str,
+        title: str
+    ) -> str:
+        """
+        Generates an engaging, viral top-hook headline in all-caps with emojis
+        specifically formatted for the top safe-zone banner of TikTok/Shorts.
+        """
+        # Try Gemini CLI if available
+        if self.gemini_bin:
+            try:
+                gemini_bin = str(self.gemini_bin)
+                prompt = (
+                    f"Create an ultra-engaging, viral 4 to 7 word hook banner in ALL CAPS with 2 emojis for a TikTok/Reels vertical clip of {channel_name}.\n"
+                    f"Title: {title}\n"
+                    f"Transcript snippet: {transcript[:180]}\n"
+                    f"Respond with ONLY the hook line (e.g. '🔥 BRO CANNOT BE REAL 💀')."
+                )
+                proc = subprocess.run([gemini_bin, prompt], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=6, text=True)
+                if proc.returncode == 0 and proc.stdout.strip():
+                    hook = proc.stdout.strip().replace('"', '').replace("'", "")
+                    first_line = hook.splitlines()[0].strip()
+                    if 4 <= len(first_line) <= 45:
+                        return first_line
+            except Exception:
+                pass
+
+        # Intelligent local heuristic hook generator
+        chat_texts = [m.message.upper() for m in chat_messages]
+        all_words = []
+        for text in chat_texts:
+            tokens = re.findall(r"\b[A-Z0-9_]{2,15}\b", text)
+            all_words.extend(tokens)
+        word_counts = Counter(all_words)
+
+        top_hype = None
+        for word, _ in word_counts.most_common(10):
+            if word in {"W", "L", "OMG", "GOAT", "SIUUU", "SPEED", "WHAT", "NOOO", "CR7", "INSANE", "WTF", "CLUTCH", "ACE"}:
+                top_hype = word
+                break
+
+        if top_hype == "W":
+            return "🔥 BRO JUST PULLED OFF A MASSIVE W 🐐"
+        elif top_hype == "L":
+            return "💀 BIGGEST L OF THE STREAM 😭"
+        elif top_hype in {"SIUUU", "CR7", "GOAT"}:
+            return "🐐 HE DROPPED THE ICONIC SIUUU 🔥"
+        elif top_hype in {"OMG", "WHAT", "WTF", "NOOO"}:
+            return "😱 WAIT FOR HIS REACTION 💀"
+        elif top_hype in {"INSANE", "CLUTCH", "ACE"}:
+            return "🤯 BRO WENT ABSOLUTELY INSANE 🔥"
+        elif "WAIT" in title.upper():
+            return "🔥 WAIT TILL THE VERY END 💀"
+        else:
+            return f"🔥 {channel_name.upper()} DID THIS LIVE ON STREAM 😱"
 

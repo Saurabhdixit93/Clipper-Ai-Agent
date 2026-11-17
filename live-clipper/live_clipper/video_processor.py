@@ -30,7 +30,9 @@ class VideoProcessor:
         raw_clip_path: Path,
         output_clip_path: Path,
         subtitle_cues: Optional[List[SubtitleCue]] = None,
-        transcriber: Optional[Transcriber] = None
+        transcriber: Optional[Transcriber] = None,
+        hook_text: Optional[str] = None,
+        on_progress: Optional[object] = None
     ) -> bool:
         raw_clip_path = Path(raw_clip_path)
         output_clip_path = Path(output_clip_path)
@@ -55,7 +57,16 @@ class VideoProcessor:
             cmd_inputs = ["-i", str(raw_clip_path)]
             last_stream = "[base_v]"
 
-            # 2. Add subtitle overlays if available
+            # 2. Add dynamic top hook banner overlay if available
+            if hook_text and transcriber:
+                hook_img_path = temp_sub_dir / "hook_banner.png"
+                if transcriber.render_hook_banner(hook_text, hook_img_path):
+                    input_index = len(cmd_inputs) // 2
+                    cmd_inputs.extend(["-i", str(hook_img_path)])
+                    filter_chains.append(f"{last_stream}[{input_index}:v]overlay=0:0[v_hook]")
+                    last_stream = "[v_hook]"
+
+            # 3. Add timed subtitle overlays if available
             valid_cues = [c for c in (subtitle_cues or []) if c.text.strip()]
             if valid_cues and transcriber:
                 for idx, cue in enumerate(valid_cues):
@@ -73,14 +84,12 @@ class VideoProcessor:
                             f"{last_stream}[{input_index}:v]overlay=0:0:enable='between(t,{start_t:.3f},{end_t:.3f})'{next_stream}"
                         )
                         last_stream = next_stream
-            else:
-                last_stream = "[base_v]"
 
             final_video_label = last_stream if last_stream != "[base_v]" else "[base_v]"
             full_filter = ";".join(filter_chains)
 
             ffmpeg_cmd = [
-                "ffmpeg", "-y", "-v", "warning",
+                "ffmpeg", "-y", "-v", "error",
                 *cmd_inputs,
                 "-filter_complex", full_filter,
                 "-map", final_video_label,
@@ -92,13 +101,44 @@ class VideoProcessor:
                 "-c:a", "aac",
                 "-b:a", "192k",
                 "-movflags", "+faststart",
+                "-progress", "pipe:1",
                 str(output_clip_path)
             ]
 
-            logger.info(f"Rendering vertical video clip to: {output_clip_path.name}")
-            res = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
-            if res.returncode != 0:
-                logger.error(f"FFmpeg vertical render failed: {res.stderr.decode()}")
+            logger.info(f"Rendering vertical video clip with hook to: {output_clip_path.name}")
+            proc = subprocess.Popen(
+                ffmpeg_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            target_us = self.config.clip_duration_sec * 1_000_000
+            if proc.stdout:
+                try:
+                    for line in proc.stdout:
+                        line = line.strip()
+                        if line.startswith("out_time_us="):
+                            try:
+                                us = int(line.split("=")[1])
+                                pct = min(100.0, (us / target_us) * 100.0)
+                                if callable(on_progress):
+                                    on_progress(pct)
+                            except Exception:
+                                pass
+                finally:
+                    proc.stdout.close()
+
+            proc.wait(timeout=180)
+            err = ""
+            if proc.stderr:
+                try:
+                    err = proc.stderr.read()
+                finally:
+                    proc.stderr.close()
+
+            if proc.returncode != 0:
+                logger.error(f"FFmpeg vertical render failed: {err}")
                 return False
 
             return output_clip_path.exists() and output_clip_path.stat().st_size > 0

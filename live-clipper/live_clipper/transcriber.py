@@ -209,3 +209,87 @@ class Transcriber:
             logger.error(f"Error rendering subtitle image for '{text}': {e}")
             return False
 
+    def render_hook_banner(
+        self,
+        hook_text: str,
+        output_path: Path,
+        width: int = 1080,
+        height: int = 1920
+    ) -> bool:
+        """
+        Renders an eye-catching viral hook banner at top of vertical video (y ≈ 200).
+        Includes a stylish rounded pill background with glowing border and bold text.
+        """
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+
+            font_size = 46
+            if self.font_path:
+                try:
+                    font = ImageFont.truetype(self.font_path, font_size)
+                except Exception:
+                    font = ImageFont.load_default()
+            else:
+                font = ImageFont.load_default()
+
+            clean_text = hook_text.strip().upper()
+            if len(clean_text) > 42:
+                clean_text = clean_text[:40] + "..."
+
+            bbox = draw.textbbox((0, 0), clean_text, font=font)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+
+            pad_x = 34
+            pad_y = 16
+            box_w = min(width - 80, text_w + (pad_x * 2))
+            box_h = text_h + (pad_y * 2)
+            box_x0 = (width - box_w) // 2
+            box_y0 = 210
+            box_x1 = box_x0 + box_w
+            box_y1 = box_y0 + box_h
+
+            # Draw rounded pill box background (dark obsidian with gold accent border)
+            draw.rounded_rectangle(
+                [box_x0, box_y0, box_x1, box_y1],
+                radius=16,
+                fill=(12, 12, 18, 225),
+                outline=(255, 215, 0, 255),
+                width=3
+            )
+
+            # Center text inside the pill
+            text_x = box_x0 + (box_w - text_w) // 2
+            text_y = box_y0 + (box_h - text_h) // 2 - 2
+
+            # Drop shadow
+            draw.text(
+                (text_x + 3, text_y + 3),
+                clean_text,
+                font=font,
+                fill=(0, 0, 0, 220),
+                stroke_width=2,
+                stroke_fill=(0, 0, 0, 220)
+            )
+
+            # Main text
+            draw.text(
+                (text_x, text_y),
+                clean_text,
+                font=font,
+                fill=(255, 255, 255, 255),
+                stroke_width=3,
+                stroke_fill=(0, 0, 0, 255)
+            )
+
+            img.save(str(output_path), "PNG")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error rendering hook banner image: {e}")
+            return False
+

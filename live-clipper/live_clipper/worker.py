@@ -67,6 +67,11 @@ class ProcessingWorker:
         self.last_created_clip_name: Optional[str] = None
         self.is_busy = False
 
+        # Real-time editing state for dashboard
+        self.editing_status: str = "IDLE"
+        self.editing_progress_pct: float = 0.0
+        self.current_hook_text: str = ""
+
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -116,22 +121,34 @@ class ProcessingWorker:
                 self._process_clip_job(job)
             except Exception as e:
                 self.processing_errors += 1
+                self.editing_status = "Error during edit"
                 logger.error(f"Error processing clip job: {e}", exc_info=True)
             finally:
                 # Unlock chunks so buffer manager can prune expired files
                 self.buffer_manager.unlock_chunks(job.locked_chunks)
                 self.queue.task_done()
                 self.is_busy = False
+                time.sleep(2)
+                if self.queue.empty():
+                    self.editing_status = "IDLE"
+                    self.editing_progress_pct = 0.0
 
     def _process_clip_job(self, job: ClipJob):
         event = job.event
         now = time.time()
         
-        # Wait until reaction delay has passed so all post-event video is written
+        # 1. Wait until reaction delay has passed so all post-event video is written (0% -> 20%)
         wait_needed = event.ready_time - now
         if wait_needed > 0:
             logger.info(f"Waiting {wait_needed:.1f}s for post-event reaction recording to complete...")
-            time.sleep(wait_needed)
+            start_wait = time.time()
+            while time.time() < event.ready_time and not self._stop_event.is_set():
+                elapsed = time.time() - start_wait
+                rem = max(0.0, event.ready_time - time.time())
+                self.editing_status = f"Buffering post-event ({int(rem)}s)"
+                self.editing_progress_pct = min(20.0, (elapsed / wait_needed) * 20.0)
+                time.sleep(0.5)
+
             # Re-lock any new chunk that was created during the reaction wait
             additional_chunks = self.buffer_manager.lock_chunks_for_range(
                 event.clip_start_time,
@@ -142,11 +159,14 @@ class ProcessingWorker:
         if not job.locked_chunks:
             logger.warning("No chunks available for clip reconstruction")
             self.processing_errors += 1
+            self.editing_status = "No chunks available"
             return
 
         raw_clip_path = self.config.temp_dir / f"raw_assembly_{int(event.event_time)}.mp4"
 
-        # 1. Reconstruct and slice 45-second raw clip
+        # 2. Reconstruct and slice 45-second raw clip (20% -> 35%)
+        self.editing_status = f"Stitching {len(job.locked_chunks)} chunks"
+        self.editing_progress_pct = 25.0
         logger.info(f"Stitching {len(job.locked_chunks)} chunks for 45s clip...")
         success = self.buffer_manager.reconstruct_clip(
             chunks=job.locked_chunks,
@@ -158,26 +178,39 @@ class ProcessingWorker:
         if not success or not raw_clip_path.exists():
             logger.error("Failed to assemble raw clip")
             self.processing_errors += 1
+            self.editing_status = "Stitch failed"
             return
 
-        # 2. Transcribe and extract subtitle cues
+        # 3. Transcribe and extract subtitle cues (35% -> 50%)
+        self.editing_status = "Transcribing (Faster-Whisper)"
+        self.editing_progress_pct = 38.0
         logger.info("Transcribing clip audio with faster-whisper...")
         transcript, cues = self.transcriber.transcribe_audio(raw_clip_path)
 
-        # 3. Retrieve relevant chat messages around trigger
+        # 4. Retrieve relevant chat messages around trigger
         chat_context = self.chat_monitor.get_recent_messages(
             count=25,
             around_timestamp=event.event_time
         )
 
-        # 4. Generate title & 3 hashtags
+        # 5. Generate viral title & engaging hook banner (50% -> 60%)
+        self.editing_status = "Generating viral hook & title"
+        self.editing_progress_pct = 50.0
         title, hashtags = self.title_generator.generate_title_and_tags(
             transcript=transcript,
             chat_messages=chat_context,
             channel_name=self.config.channel
         )
+        hook_text = self.title_generator.generate_hook(
+            transcript=transcript,
+            chat_messages=chat_context,
+            channel_name=self.config.channel,
+            title=title
+        )
+        self.current_hook_text = hook_text
+        self.editing_progress_pct = 60.0
 
-        # 5. Build sanitized filenames
+        # 6. Build sanitized filenames
         event_dt = time.localtime(event.event_time)
         time_prefix = time.strftime("%Y-%m-%d_%H-%M-%S", event_dt)
         short_title_slug = sanitize_filename(title)
@@ -188,26 +221,37 @@ class ProcessingWorker:
         final_mp4_path = self.config.clips_dir / final_mp4_name
         final_txt_path = self.config.clips_dir / final_txt_name
 
-        # 6. Render vertical video (1080x1920) with blurred background & burned captions
-        logger.info(f"Rendering final vertical video with burned captions...")
+        # 7. Render vertical video (1080x1920) with blurred background, hook & burned captions (60% -> 95%)
+        self.editing_status = "Rendering 1080x1920: 0%"
+        def _on_render_progress(render_pct: float):
+            self.editing_progress_pct = min(95.0, 60.0 + (render_pct * 0.35))
+            self.editing_status = f"Rendering Video: {int(render_pct)}%"
+
+        logger.info(f"Rendering final vertical video with hook banner & captions...")
         render_success = self.video_processor.render_vertical_clip(
             raw_clip_path=raw_clip_path,
             output_clip_path=final_mp4_path,
             subtitle_cues=cues,
-            transcriber=self.transcriber
+            transcriber=self.transcriber,
+            hook_text=hook_text,
+            on_progress=_on_render_progress
         )
 
         if not render_success:
             logger.error("Failed to render vertical video")
             self.processing_errors += 1
+            self.editing_status = "Render failed"
             if raw_clip_path.exists():
                 raw_clip_path.unlink()
             return
 
-        # 7. Write matching TXT metadata file
+        # 8. Write matching TXT metadata file
+        self.editing_status = "Saving metadata TXT"
+        self.editing_progress_pct = 97.0
         try:
             with open(final_txt_path, "w", encoding="utf-8") as f:
                 f.write(f"Title: {title}\n")
+                f.write(f"Viral Hook: {hook_text}\n")
                 f.write(f"Hashtags: {' '.join(hashtags)}\n")
                 f.write(f"Event Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', event_dt)} (epoch: {event.event_time:.2f})\n")
                 f.write(f"Transcript:\n{transcript}\n")
@@ -221,11 +265,13 @@ class ProcessingWorker:
             except OSError:
                 pass
 
-        # 8. Required output print
+        # 9. Required output print
         hh_mm_ss = time.strftime("%H:%M:%S", event_dt)
         print(f"[CLIP CREATED] {hh_mm_ss} | {title} | clips/{final_mp4_name}")
         logger.info(f"[CLIP CREATED] {hh_mm_ss} | {title} | clips/{final_mp4_name}")
 
         self.total_clips_created += 1
         self.last_created_clip_name = final_mp4_name
+        self.editing_status = "Completed & saved!"
+        self.editing_progress_pct = 100.0
 

@@ -117,6 +117,15 @@ class LiveDashboard:
         disk_free = self._get_disk_free_gb()
         last_clip = self.worker.last_created_clip_name or "None yet"
 
+        # Real-time editing and hook metrics
+        edit_status = self.worker.editing_status
+        edit_pct = self.worker.editing_progress_pct
+        current_hook = self.worker.current_hook_text or "Auto-generated on trigger"
+        filled = int(edit_pct / 6.25)
+        bar = ("█" * filled).ljust(16, "░")
+        prog_bar_str = f"[{bar}] {int(edit_pct):>3d}%"
+        status_left = f"EDITING:   {edit_status}"
+
         # Box dimensions: exact 66 inner content width + 2 border padding = 70 chars wide
         INNER = 66
         BORDER_LEN = INNER + 2 # 68
@@ -128,6 +137,11 @@ class LiveDashboard:
         def two_col(left: str, right: str) -> str:
             l_str = left[:32].ljust(32)
             r_str = right[:32].ljust(32)
+            return row(f"{l_str}  {r_str}")
+
+        def edit_row(left: str, right: str) -> str:
+            l_str = left[:40].ljust(40)
+            r_str = right[:24].rjust(24)
             return row(f"{l_str}  {r_str}")
 
         top_border = f"╔{'═' * BORDER_LEN}╗\n"
@@ -153,7 +167,10 @@ class LiveDashboard:
             two_col(f"QUEUED JOBS:     {queue_size} jobs", f"SESSION RUNTIME: {runtime_str}"),
             two_col(f"PROCESSING ERR:  {errors}", f"DISK FREE:       {disk_free:.1f} GB"),
             div_border,
-            row(f"LATEST CLIP: {last_clip[:52]}"),
+            edit_row(status_left, prog_bar_str),
+            row(f"VIRAL HOOK: {current_hook[:52]}"),
+            div_border,
+            row(f"LATEST CLIP:     {last_clip[:48]}"),
             bot_border
         ]
         return "".join(lines)
