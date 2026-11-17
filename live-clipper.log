@@ -515,3 +515,40 @@
 2026-11-18 00:41:38,784 [info] live_clipper.worker: Background processing worker stopped
 2026-11-18 00:41:38,784 [info] live_clipper.app: Live Clipper stopped cleanly
 2026-11-18 00:46:41,398 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/Anti-Clips/live-clipper/models/faster-whisper-base' on device 'cpu' with 'int8'...
+2026-11-18 00:46:42,365 [info] live_clipper.transcriber: Faster-whisper model successfully loaded
+2026-11-18 00:46:46,570 [info] live_clipper.app: Starting Twitch Live Clipper for channel: #tarik
+2026-11-18 00:46:46,571 [info] live_clipper.chat_monitor: Connecting to irc.chat.twitch.tv:6667...
+2026-11-18 00:46:46,571 [info] live_clipper.chat_monitor: Chat monitor started for #tarik with nick justinfan15223
+2026-11-18 00:46:46,571 [info] live_clipper.worker: Background processing worker started
+2026-11-18 00:46:46,573 [info] live_clipper.recorder: Recording engine started for channel: tarik
+2026-11-18 00:46:47,794 [info] live_clipper.chat_monitor: Successfully joined #tarik on Twitch IRC
+2026-11-18 00:46:50,071 [info] live_clipper.recorder: Stream is LIVE! Quality selected: 720p60
+2026-11-18 00:46:50,071 [info] live_clipper.recorder: Starting Streamlink: /Users/saurabhdixit/Anti-Clips/live-clipper/.venv/bin/streamlink --stdout --twitch-disable-ads https://www.twitch.tv/tarik 720p60
+2026-11-18 00:46:50,083 [info] live_clipper.recorder: Starting FFmpeg: ffmpeg -y -v warning -i pipe:0 -c copy -f segment -segment_time 10 -reset_timestamps 1 -strftime 1 -segment_list /Users/saurabhdixit/Anti-Clips/live-clipper/temp/segments_1794943010.csv -segment_list_type csv /Users/saurabhdixit/Anti-Clips/live-clipper/temp/chunk_%s.mp4
+2026-11-18 00:47:04,475 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -16.9 LUFS (baseline: -24.0 LUFS, spike: +7.1 dB)
+2026-11-18 00:47:14,388 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -8.7 LUFS (baseline: -16.9 LUFS, spike: +8.2 dB)
+2026-11-18 00:47:27,533 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 21 msgs/5s (baseline: 0.5, multiplier: 42.0x)
+2026-11-18 00:47:27,533 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:47:12! Chat: 21 (base: 0.5), Audio: -8.7 LUFS (base: -16.9 LUFS). Clip: [1794943002.0 -> 1794943047.0]
+2026-11-18 00:47:27,533 [info] live_clipper.buffer_manager: Locked 3 chunks for range [1794943002.0, 1794943047.0]
+2026-11-18 00:47:27,533 [info] live_clipper.worker: Queued clip job for event at 1794943032.0 (queue size: 1)
+2026-11-18 00:47:27,533 [info] live_clipper.worker: Stitching 3 chunks for 45s clip...
+2026-11-18 00:47:27,802 [info] live_clipper.worker: Transcribing clip audio with faster-whisper...
+2026-11-18 00:47:27,950 [info] faster_whisper: Processing audio with duration 00:29.995
+2026-11-18 00:47:29,083 [info] faster_whisper: Detected language 'en' with probability 0.99
+2026-11-18 00:47:33,475 [info] live_clipper.transcriber: Transcription complete: 6 subtitle cues generated
+2026-11-18 00:47:33,476 [error] live_clipper.worker: Error processing clip job: name 'time' is not defined
+Traceback (most recent call last):
+  File "/Users/saurabhdixit/Anti-Clips/live-clipper/live_clipper/worker.py", line 121, in _worker_loop
+    self._process_clip_job(job)
+  File "/Users/saurabhdixit/Anti-Clips/live-clipper/live_clipper/worker.py", line 204, in _process_clip_job
+    hook_text = self.title_generator.generate_hook(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/saurabhdixit/Anti-Clips/live-clipper/live_clipper/title_generator.py", line 197, in generate_hook
+    ]
+      
+NameError: name 'time' is not defined
+2026-11-18 00:47:50,927 [info] live_clipper.app: Stopping all services...
+2026-11-18 00:47:51,896 [info] live_clipper.recorder: Recording engine stopped
+2026-11-18 00:47:54,901 [info] live_clipper.chat_monitor: Chat monitor stopped
+2026-11-18 00:47:55,791 [info] live_clipper.worker: Background processing worker stopped
+2026-11-18 00:47:55,792 [info] live_clipper.app: Live Clipper stopped cleanly

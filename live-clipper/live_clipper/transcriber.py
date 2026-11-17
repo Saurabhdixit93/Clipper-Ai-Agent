@@ -230,8 +230,10 @@ class Transcriber:
 
     def _split_text_and_emojis(self, text: str) -> List[Tuple[str, bool]]:
         """Splits string into contiguous chunks of (text_substring, is_emoji_bool)."""
+        if not text:
+            return []
         segments: List[Tuple[str, bool]] = []
-        curr_is_em = None
+        curr_is_em: Optional[bool] = None
         curr_str = ""
         for ch in text:
             em = self._is_emoji_char(ch)
@@ -241,10 +243,10 @@ class Transcriber:
             elif em == curr_is_em:
                 curr_str += ch
             else:
-                segments.append((curr_str, curr_is_em))
+                segments.append((curr_str, bool(curr_is_em)))
                 curr_str = ch
                 curr_is_em = em
-        if curr_str:
+        if curr_str and curr_is_em is not None:
             segments.append((curr_str, curr_is_em))
         return segments
 

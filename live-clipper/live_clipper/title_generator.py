@@ -1,6 +1,7 @@
 """Title generation engine supporting Gemini CLI with local fallback."""
 
 import re
+import time
 import shutil
 import logging
 import subprocess
