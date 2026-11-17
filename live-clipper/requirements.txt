@@ -1,0 +1,5 @@
+streamlink>=8.6.3
+faster-whisper>=1.2.1
+requests>=2.34.2
+pillow>=13.0.0
+

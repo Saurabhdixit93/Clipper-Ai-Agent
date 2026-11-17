@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/live-clipper/.venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/live-clipper",
+    "${workspaceFolder}/live-clipper/.venv/lib/python3.11/site-packages"
+  ]
+}
+

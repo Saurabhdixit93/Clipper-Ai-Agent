@@ -1,0 +1,231 @@
+"""Background worker queue and clip rendering pipeline for decoupled processing."""
+
+import os
+import re
+import time
+import queue
+import logging
+import threading
+from pathlib import Path
+from typing import Optional, List, Dict
+from dataclasses import dataclass
+
+from live_clipper.config import ClipperConfig
+from live_clipper.buffer_manager import BufferManager, Chunk
+from live_clipper.chat_monitor import TwitchChatMonitor
+from live_clipper.trigger_engine import TriggerEvent
+from live_clipper.transcriber import Transcriber
+from live_clipper.video_processor import VideoProcessor
+from live_clipper.title_generator import TitleGenerator
+
+logger = logging.getLogger("live_clipper.worker")
+
+
+def sanitize_filename(name: str) -> str:
+    """
+    Sanitize string for Windows and POSIX filesystem compatibility.
+    Removes invalid characters: < > : " / \\ | ? * and controls.
+    """
+    # Replace whitespace and illegal characters with hyphens/underscores
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', name)
+    cleaned = re.sub(r'\s+', '-', cleaned)
+    cleaned = re.sub(r'-+', '-', cleaned)
+    cleaned = cleaned.strip('-._')
+    return cleaned[:45] if cleaned else "clip"
+
+
+@dataclass
+class ClipJob:
+    event: TriggerEvent
+    locked_chunks: List[Chunk]
+
+
+class ProcessingWorker:
+    """
+    Decoupled background worker for non-blocking clip reconstruction,
+    transcription, subtitle generation, vertical rendering, and metadata export.
+    """
+    def __init__(
+        self,
+        config: ClipperConfig,
+        buffer_manager: BufferManager,
+        chat_monitor: TwitchChatMonitor,
+        transcriber: Transcriber,
+        video_processor: VideoProcessor,
+        title_generator: TitleGenerator
+    ):
+        self.config = config
+        self.buffer_manager = buffer_manager
+        self.chat_monitor = chat_monitor
+        self.transcriber = transcriber
+        self.video_processor = video_processor
+        self.title_generator = title_generator
+        
+        self.queue: queue.Queue[ClipJob] = queue.Queue(maxsize=10)
+        self.total_clips_created = 0
+        self.processing_errors = 0
+        self.last_created_clip_name: Optional[str] = None
+        self.is_busy = False
+
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self):
+        """Start worker thread."""
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._worker_loop, name="ClipWorkerThread", daemon=True)
+        self._thread.start()
+        logger.info("Background processing worker started")
+
+    def stop(self):
+        """Stop worker thread."""
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=5)
+        logger.info("Background processing worker stopped")
+
+    def submit_job(self, event: TriggerEvent):
+        """
+        Locks the relevant chunks and puts the clip job into the bounded queue.
+        Does not block recorder or chat monitor.
+        """
+        locked = self.buffer_manager.lock_chunks_for_range(
+            event.clip_start_time,
+            event.clip_end_time
+        )
+        job = ClipJob(event=event, locked_chunks=locked)
+        try:
+            self.queue.put_nowait(job)
+            logger.info(f"Queued clip job for event at {event.event_time:.1f} (queue size: {self.queue.qsize()})")
+        except queue.Full:
+            logger.error("Processing queue is full! Dropping trigger event to prevent memory pressure.")
+            self.buffer_manager.unlock_chunks(locked)
+            self.processing_errors += 1
+
+    def _worker_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                job = self.queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+
+            self.is_busy = True
+            try:
+                self._process_clip_job(job)
+            except Exception as e:
+                self.processing_errors += 1
+                logger.error(f"Error processing clip job: {e}", exc_info=True)
+            finally:
+                # Unlock chunks so buffer manager can prune expired files
+                self.buffer_manager.unlock_chunks(job.locked_chunks)
+                self.queue.task_done()
+                self.is_busy = False
+
+    def _process_clip_job(self, job: ClipJob):
+        event = job.event
+        now = time.time()
+        
+        # Wait until reaction delay has passed so all post-event video is written
+        wait_needed = event.ready_time - now
+        if wait_needed > 0:
+            logger.info(f"Waiting {wait_needed:.1f}s for post-event reaction recording to complete...")
+            time.sleep(wait_needed)
+            # Re-lock any new chunk that was created during the reaction wait
+            additional_chunks = self.buffer_manager.lock_chunks_for_range(
+                event.clip_start_time,
+                event.clip_end_time
+            )
+            job.locked_chunks.extend([c for c in additional_chunks if c not in job.locked_chunks])
+
+        if not job.locked_chunks:
+            logger.warning("No chunks available for clip reconstruction")
+            self.processing_errors += 1
+            return
+
+        raw_clip_path = self.config.temp_dir / f"raw_assembly_{int(event.event_time)}.mp4"
+
+        # 1. Reconstruct and slice 45-second raw clip
+        logger.info(f"Stitching {len(job.locked_chunks)} chunks for 45s clip...")
+        success = self.buffer_manager.reconstruct_clip(
+            chunks=job.locked_chunks,
+            target_start=event.clip_start_time,
+            target_duration=event.clip_duration,
+            output_path=raw_clip_path
+        )
+
+        if not success or not raw_clip_path.exists():
+            logger.error("Failed to assemble raw clip")
+            self.processing_errors += 1
+            return
+
+        # 2. Transcribe and extract subtitle cues
+        logger.info("Transcribing clip audio with faster-whisper...")
+        transcript, cues = self.transcriber.transcribe_audio(raw_clip_path)
+
+        # 3. Retrieve relevant chat messages around trigger
+        chat_context = self.chat_monitor.get_recent_messages(
+            count=25,
+            around_timestamp=event.event_time
+        )
+
+        # 4. Generate title & 3 hashtags
+        title, hashtags = self.title_generator.generate_title_and_tags(
+            transcript=transcript,
+            chat_messages=chat_context,
+            channel_name=self.config.channel
+        )
+
+        # 5. Build sanitized filenames
+        event_dt = time.localtime(event.event_time)
+        time_prefix = time.strftime("%Y-%m-%d_%H-%M-%S", event_dt)
+        short_title_slug = sanitize_filename(title)
+        
+        final_mp4_name = f"{time_prefix}_{short_title_slug}.mp4"
+        final_txt_name = f"{time_prefix}_{short_title_slug}.txt"
+
+        final_mp4_path = self.config.clips_dir / final_mp4_name
+        final_txt_path = self.config.clips_dir / final_txt_name
+
+        # 6. Render vertical video (1080x1920) with blurred background & burned captions
+        logger.info(f"Rendering final vertical video with burned captions...")
+        render_success = self.video_processor.render_vertical_clip(
+            raw_clip_path=raw_clip_path,
+            output_clip_path=final_mp4_path,
+            subtitle_cues=cues,
+            transcriber=self.transcriber
+        )
+
+        if not render_success:
+            logger.error("Failed to render vertical video")
+            self.processing_errors += 1
+            if raw_clip_path.exists():
+                raw_clip_path.unlink()
+            return
+
+        # 7. Write matching TXT metadata file
+        try:
+            with open(final_txt_path, "w", encoding="utf-8") as f:
+                f.write(f"Title: {title}\n")
+                f.write(f"Hashtags: {' '.join(hashtags)}\n")
+                f.write(f"Event Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', event_dt)} (epoch: {event.event_time:.2f})\n")
+                f.write(f"Transcript:\n{transcript}\n")
+        except Exception as e:
+            logger.error(f"Failed to write metadata TXT: {e}")
+
+        # Cleanup raw clip
+        if raw_clip_path.exists():
+            try:
+                raw_clip_path.unlink()
+            except OSError:
+                pass
+
+        # 8. Required output print
+        hh_mm_ss = time.strftime("%H:%M:%S", event_dt)
+        print(f"[CLIP CREATED] {hh_mm_ss} | {title} | clips/{final_mp4_name}")
+        logger.info(f"[CLIP CREATED] {hh_mm_ss} | {title} | clips/{final_mp4_name}")
+
+        self.total_clips_created += 1
+        self.last_created_clip_name = final_mp4_name
+

@@ -1,0 +1,10 @@
+{
+  "venvPath": "live-clipper",
+  "venv": ".venv",
+  "extraPaths": [
+    "live-clipper",
+    "live-clipper/.venv/lib/python3.11/site-packages"
+  ],
+  "reportMissingImports": false
+}
+
