@@ -185,18 +185,48 @@ class TitleGenerator:
                 top_hype = word
                 break
 
+        trans_upper = transcript.upper()
+        # 1. Emotion/Rage/Exclamation in transcript
+        if any(w in trans_upper for w in ["FUCK", "SHIT", "BRO WHAT", "NO WAY", "SHUT UP", "PISSED", "MAD", "DONT WANT"]):
+            rage_hooks = [
+                "💀 BRO COMPLETELY LOST HIS PATIENCE 😭",
+                "🔥 HE FINALLY SAID WHAT EVERYONE WAS THINKING 💀",
+                "😭 BRO WAS FED UP RIGHT HERE 💀",
+                "😱 HIS REACTION AT THE END IS PRICELESS 💀"
+            ]
+            return rage_hooks[int(time.time()) % len(rage_hooks)]
+
+        # 2. Incredible skill / aim in transcript
+        if any(w in trans_upper for w in ["HOW", "AIM", "HACK", "CHEATING", "HEADSHOT", "CLUTCH"]):
+            skill_hooks = [
+                "🎯 HOW DID HE ACTUALLY HIT THAT 🔥",
+                "🤯 99% OF PLAYERS WOULD MISS THIS 🐐",
+                "💀 BRO'S AIM WAS SCRIPTED HERE 🔥",
+                "😱 HE REALLY PULLED OFF THE IMPOSSIBLE 🐐"
+            ]
+            return skill_hooks[int(time.time()) % len(skill_hooks)]
+
+        # 3. Chat hype keyword matches
         if top_hype == "W":
             return "🔥 BRO JUST PULLED OFF A MASSIVE W 🐐"
         elif top_hype == "L":
-            return "💀 BIGGEST L OF THE STREAM 😭"
+            return "💀 BIGGEST L IN TWITCH HISTORY 😭"
         elif top_hype in {"SIUUU", "CR7", "GOAT"}:
             return "🐐 HE DROPPED THE ICONIC SIUUU 🔥"
         elif top_hype in {"OMG", "WHAT", "WTF", "NOOO"}:
-            return "😱 WAIT FOR HIS REACTION 💀"
+            return "😱 WAIT FOR HIS REACTION AT THE END 💀"
         elif top_hype in {"INSANE", "CLUTCH", "ACE"}:
             return "🤯 BRO WENT ABSOLUTELY INSANE 🔥"
         elif "WAIT" in title.upper():
             return "🔥 WAIT TILL THE VERY END 💀"
         else:
-            return f"🔥 {channel_name.upper()} DID THIS LIVE ON STREAM 😱"
+            viral_general_hooks = [
+                "🔥 BRO THOUGHT HE WAS HIM 💀",
+                "😱 WAIT TILL YOU SEE WHAT HAPPENED NEXT 💀",
+                "💀 BRO WAS NOT READY FOR THIS MOMENT 😭",
+                "🤯 CHAT WENT COMPLETELY WILD HERE 🔥",
+                "😭 HE COULD NOT BELIEVE HIS EYES 💀",
+                "🔥 WATCH HIS FACE AT THE VERY END 😱"
+            ]
+            return viral_general_hooks[int(time.time()) % len(viral_general_hooks)]
 

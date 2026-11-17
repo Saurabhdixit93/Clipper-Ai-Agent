@@ -6,6 +6,7 @@ import time
 import shutil
 import logging
 import threading
+import unicodedata
 from typing import Optional
 
 from live_clipper.recorder import RecordingEngine
@@ -130,19 +131,47 @@ class LiveDashboard:
         INNER = 66
         BORDER_LEN = INNER + 2 # 68
 
-        def row(content: str) -> str:
-            line_txt = content[:INNER]
-            return f"║ {line_txt:<{INNER}} ║\n"
+        def _char_width(ch: str) -> int:
+            cp = ord(ch)
+            if cp == 0xFE0F or cp == 0x200D:
+                return 0
+            if unicodedata.east_asian_width(ch) in ("W", "F"):
+                return 2
+            if 0x1F000 <= cp <= 0x1FAFF or 0x2600 <= cp <= 0x27BF:
+                return 2
+            return 1
+
+        def _pad_display(s: str, target_width: int, align: str = "left") -> str:
+            curr_w = 0
+            chars = []
+            for ch in s:
+                w = _char_width(ch)
+                if curr_w + w > target_width:
+                    break
+                chars.append(ch)
+                curr_w += w
+            trimmed = "".join(chars)
+            pad_len = max(0, target_width - curr_w)
+            if align == "right":
+                return (" " * pad_len) + trimmed
+            elif align == "center":
+                left_pad = " " * (pad_len // 2)
+                right_pad = " " * (pad_len - len(left_pad))
+                return left_pad + trimmed + right_pad
+            return trimmed + (" " * pad_len)
+
+        def row(content: str, align: str = "left") -> str:
+            return f"║ {_pad_display(content, INNER, align=align)} ║\n"
 
         def two_col(left: str, right: str) -> str:
-            l_str = left[:32].ljust(32)
-            r_str = right[:32].ljust(32)
-            return row(f"{l_str}  {r_str}")
+            l_str = _pad_display(left, 32)
+            r_str = _pad_display(right, 32)
+            return f"║ {l_str}  {r_str} ║\n"
 
         def edit_row(left: str, right: str) -> str:
-            l_str = left[:40].ljust(40)
-            r_str = right[:24].rjust(24)
-            return row(f"{l_str}  {r_str}")
+            l_str = _pad_display(left, 40)
+            r_str = _pad_display(right, 24, align="right")
+            return f"║ {l_str}  {r_str} ║\n"
 
         top_border = f"╔{'═' * BORDER_LEN}╗\n"
         div_border = f"╠{'═' * BORDER_LEN}╣\n"
@@ -151,8 +180,8 @@ class LiveDashboard:
         lines = [
             "\033[H\033[J", # ANSI home & clear screen
             top_border,
-            row(f"TWITCH LIVE CLIPPER  •  CHANNEL: #{cfg.channel.upper()}".center(INNER)),
-            row(f"Current Time: {now_str}  •  Trigger Mode: {mode_str}".center(INNER)),
+            row(f"TWITCH LIVE CLIPPER  •  CHANNEL: #{cfg.channel.upper()}", align="center"),
+            row(f"Current Time: {now_str}  •  Trigger Mode: {mode_str}", align="center"),
             div_border,
             two_col(f"STREAM STATUS:   {stream_status}", f"STREAM QUALITY:  {stream_quality}"),
             two_col(f"CHUNK BUFFER:    {chunks_count} chunks ({buffer_dur:.0f}s)", f"BUFFER RETENTION:10 min ({cfg.buffer_retention_sec}s)"),
@@ -168,9 +197,9 @@ class LiveDashboard:
             two_col(f"PROCESSING ERR:  {errors}", f"DISK FREE:       {disk_free:.1f} GB"),
             div_border,
             edit_row(status_left, prog_bar_str),
-            row(f"VIRAL HOOK: {current_hook[:52]}"),
+            row(f"VIRAL HOOK: {current_hook}"),
             div_border,
-            row(f"LATEST CLIP:     {last_clip[:48]}"),
+            row(f"LATEST CLIP:     {last_clip}"),
             bot_border
         ]
         return "".join(lines)

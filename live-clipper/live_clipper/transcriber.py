@@ -37,16 +37,29 @@ class Transcriber:
         self.config = config
         self.model: Optional[WhisperModel] = None
         self.font_path = self._find_font()
+        self.emoji_font_path = self._find_emoji_font()
         self._init_model()
 
     def _find_font(self) -> Optional[str]:
         """Locate suitable bold font for TikTok/Shorts style captions."""
         candidates = [
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
             "/System/Library/Fonts/Supplemental/Arial Black.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
             "/System/Library/Fonts/Helvetica.ttc",
             "/Library/Fonts/Arial Bold.ttf",
             "/Library/Fonts/Arial.ttf"
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+        return None
+
+    def _find_emoji_font(self) -> Optional[str]:
+        """Locate color emoji font for rendering emojis in video graphics."""
+        candidates = [
+            "/System/Library/Fonts/Apple Color Emoji.ttc",
+            "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+            "/usr/share/fonts/google-noto-color-emoji/NotoColorEmoji.ttf"
         ]
         for p in candidates:
             if os.path.exists(p):
@@ -209,6 +222,32 @@ class Transcriber:
             logger.error(f"Error rendering subtitle image for '{text}': {e}")
             return False
 
+    @staticmethod
+    def _is_emoji_char(char: str) -> bool:
+        """Check if character is in unicode emoji ranges."""
+        cp = ord(char)
+        return (0x1F300 <= cp <= 0x1FAFF) or (0x2600 <= cp <= 0x27BF) or (0xFE00 <= cp <= 0xFE0F) or (0x1F900 <= cp <= 0x1F9FF)
+
+    def _split_text_and_emojis(self, text: str) -> List[Tuple[str, bool]]:
+        """Splits string into contiguous chunks of (text_substring, is_emoji_bool)."""
+        segments: List[Tuple[str, bool]] = []
+        curr_is_em = None
+        curr_str = ""
+        for ch in text:
+            em = self._is_emoji_char(ch)
+            if curr_is_em is None:
+                curr_is_em = em
+                curr_str = ch
+            elif em == curr_is_em:
+                curr_str += ch
+            else:
+                segments.append((curr_str, curr_is_em))
+                curr_str = ch
+                curr_is_em = em
+        if curr_str:
+            segments.append((curr_str, curr_is_em))
+        return segments
+
     def render_hook_banner(
         self,
         hook_text: str,
@@ -217,8 +256,8 @@ class Transcriber:
         height: int = 1920
     ) -> bool:
         """
-        Renders an eye-catching viral hook banner at top of vertical video (y ≈ 200).
-        Includes a stylish rounded pill background with glowing border and bold text.
+        Renders an engaging, stylish 2-tier viral hook banner (TikTok / Reels style)
+        with frosted glass card, top gold badge, full-color emojis, and bold shadow text.
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -227,64 +266,94 @@ class Transcriber:
             img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            font_size = 46
+            # Fonts
+            font_size = 42
             if self.font_path:
                 try:
-                    font = ImageFont.truetype(self.font_path, font_size)
+                    font_main = ImageFont.truetype(self.font_path, font_size)
+                    font_badge = ImageFont.truetype(self.font_path, 21)
                 except Exception:
-                    font = ImageFont.load_default()
+                    font_main = ImageFont.load_default()
+                    font_badge = ImageFont.load_default()
             else:
-                font = ImageFont.load_default()
+                font_main = ImageFont.load_default()
+                font_badge = ImageFont.load_default()
+
+            font_emoji = None
+            if self.emoji_font_path:
+                try:
+                    font_emoji = ImageFont.truetype(self.emoji_font_path, 40)
+                except Exception:
+                    font_emoji = None
 
             clean_text = hook_text.strip().upper()
-            if len(clean_text) > 42:
-                clean_text = clean_text[:40] + "..."
+            if len(clean_text) > 44:
+                clean_text = clean_text[:42] + "..."
 
-            bbox = draw.textbbox((0, 0), clean_text, font=font)
-            text_w = bbox[2] - bbox[0]
-            text_h = bbox[3] - bbox[1]
+            # Parse segments
+            segments = self._split_text_and_emojis(clean_text)
+            total_w = 0
+            seg_widths = []
+            for txt, is_em in segments:
+                f = font_emoji if (is_em and font_emoji) else font_main
+                bbox = draw.textbbox((0, 0), txt, font=f)
+                w = bbox[2] - bbox[0]
+                seg_widths.append(w)
+                total_w += w
 
-            pad_x = 34
-            pad_y = 16
-            box_w = min(width - 80, text_w + (pad_x * 2))
-            box_h = text_h + (pad_y * 2)
-            box_x0 = (width - box_w) // 2
-            box_y0 = 210
-            box_x1 = box_x0 + box_w
-            box_y1 = box_y0 + box_h
+            # Card layout in top safe area (y ≈ 190)
+            card_w = min(width - 60, max(560, total_w + 80))
+            card_h = 132
+            card_x = (width - card_w) // 2
+            card_y = 190
 
-            # Draw rounded pill box background (dark obsidian with gold accent border)
+            # 1. Frosted obsidian glass card with gold outline
             draw.rounded_rectangle(
-                [box_x0, box_y0, box_x1, box_y1],
-                radius=16,
-                fill=(12, 12, 18, 225),
+                [card_x, card_y, card_x + card_w, card_y + card_h],
+                radius=22,
+                fill=(12, 14, 22, 235),
                 outline=(255, 215, 0, 255),
                 width=3
             )
 
-            # Center text inside the pill
-            text_x = box_x0 + (box_w - text_w) // 2
-            text_y = box_y0 + (box_h - text_h) // 2 - 2
+            # 2. Top Tag Badge (e.g. ⚡ VIRAL STREAM HIGHLIGHT ⚡)
+            badge_text = "⚡ VIRAL STREAM HIGHLIGHT ⚡"
+            badge_bbox = draw.textbbox((0, 0), badge_text, font=font_badge)
+            badge_w = badge_bbox[2] - badge_bbox[0]
+            badge_x = (width - badge_w) // 2
+            badge_y = card_y + 14
+            draw.text((badge_x, badge_y), badge_text, font=font_badge, fill=(255, 215, 0, 255))
 
-            # Drop shadow
-            draw.text(
-                (text_x + 3, text_y + 3),
-                clean_text,
-                font=font,
-                fill=(0, 0, 0, 220),
-                stroke_width=2,
-                stroke_fill=(0, 0, 0, 220)
-            )
+            # 3. Main Hook Text & Color Emojis
+            start_x = (width - total_w) // 2
+            text_y = card_y + 55
+            curr_x = start_x
 
-            # Main text
-            draw.text(
-                (text_x, text_y),
-                clean_text,
-                font=font,
-                fill=(255, 255, 255, 255),
-                stroke_width=3,
-                stroke_fill=(0, 0, 0, 255)
-            )
+            for (txt, is_em), w in zip(segments, seg_widths):
+                f = font_emoji if (is_em and font_emoji) else font_main
+                if is_em and font_emoji:
+                    # Draw color emoji
+                    draw.text((curr_x, text_y - 6), txt, font=f, embedded_color=True)
+                else:
+                    # Draw text drop shadow
+                    draw.text(
+                        (curr_x + 3, text_y + 3),
+                        txt,
+                        font=f,
+                        fill=(0, 0, 0, 240),
+                        stroke_width=2,
+                        stroke_fill=(0, 0, 0, 240)
+                    )
+                    # Draw main text in bold white
+                    draw.text(
+                        (curr_x, text_y),
+                        txt,
+                        font=f,
+                        fill=(255, 255, 255, 255),
+                        stroke_width=3,
+                        stroke_fill=(0, 0, 0, 255)
+                    )
+                curr_x += w
 
             img.save(str(output_path), "PNG")
             return True

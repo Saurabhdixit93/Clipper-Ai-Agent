@@ -467,3 +467,51 @@
 2026-11-18 00:34:49,288 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/Anti-Clips/live-clipper/models/faster-whisper-base' on device 'cpu' with 'int8'...
 2026-11-18 00:34:49,972 [info] live_clipper.transcriber: Faster-whisper model successfully loaded
 2026-11-18 00:34:50,391 [info] live_clipper.video_processor: Rendering vertical video clip with hook to: out_vertical.mp4
+2026-11-18 00:37:49,241 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/Anti-Clips/live-clipper/models/faster-whisper-base' on device 'cpu' with 'int8'...
+2026-11-18 00:37:49,870 [info] live_clipper.transcriber: Faster-whisper model successfully loaded
+2026-11-18 00:37:54,014 [info] live_clipper.app: Starting Twitch Live Clipper for channel: #tarik
+2026-11-18 00:37:54,015 [info] live_clipper.chat_monitor: Connecting to irc.chat.twitch.tv:6667...
+2026-11-18 00:37:54,016 [info] live_clipper.chat_monitor: Chat monitor started for #tarik with nick justinfan16745
+2026-11-18 00:37:54,016 [info] live_clipper.worker: Background processing worker started
+2026-11-18 00:37:54,017 [info] live_clipper.recorder: Recording engine started for channel: tarik
+2026-11-18 00:37:55,004 [info] live_clipper.chat_monitor: Successfully joined #tarik on Twitch IRC
+2026-11-18 00:37:56,721 [info] live_clipper.recorder: Stream is LIVE! Quality selected: 720p60
+2026-11-18 00:37:56,721 [info] live_clipper.recorder: Starting Streamlink: /Users/saurabhdixit/Anti-Clips/live-clipper/.venv/bin/streamlink --stdout --twitch-disable-ads https://www.twitch.tv/tarik 720p60
+2026-11-18 00:37:56,733 [info] live_clipper.recorder: Starting FFmpeg: ffmpeg -y -v warning -i pipe:0 -c copy -f segment -segment_time 10 -reset_timestamps 1 -strftime 1 -segment_list /Users/saurabhdixit/Anti-Clips/live-clipper/temp/segments_1794942476.csv -segment_list_type csv /Users/saurabhdixit/Anti-Clips/live-clipper/temp/chunk_%s.mp4
+2026-11-18 00:38:08,480 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -10.6 LUFS (baseline: -24.0 LUFS, spike: +13.4 dB)
+2026-11-18 00:38:31,917 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 16 msgs/5s (baseline: 0.5, multiplier: 31.0x)
+2026-11-18 00:38:31,917 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:38:18! Chat: 16 (base: 0.5), Audio: -11.9 LUFS (base: -13.4 LUFS). Clip: [1794942468.0 -> 1794942513.0]
+2026-11-18 00:38:31,918 [info] live_clipper.buffer_manager: Locked 3 chunks for range [1794942468.0, 1794942513.0]
+2026-11-18 00:38:31,918 [info] live_clipper.worker: Queued clip job for event at 1794942498.0 (queue size: 1)
+2026-11-18 00:38:31,918 [info] live_clipper.worker: Waiting 1.1s for post-event reaction recording to complete...
+2026-11-18 00:38:33,432 [info] live_clipper.buffer_manager: Locked 3 chunks for range [1794942468.0, 1794942513.0]
+2026-11-18 00:38:33,432 [info] live_clipper.worker: Stitching 3 chunks for 45s clip...
+2026-11-18 00:38:33,681 [info] live_clipper.worker: Transcribing clip audio with faster-whisper...
+2026-11-18 00:38:33,806 [info] faster_whisper: Processing audio with duration 00:29.995
+2026-11-18 00:38:34,802 [info] faster_whisper: Detected language 'en' with probability 1.00
+2026-11-18 00:38:37,409 [info] live_clipper.transcriber: Transcription complete: 22 subtitle cues generated
+2026-11-18 00:38:37,410 [info] live_clipper.worker: Rendering final vertical video with hook banner & captions...
+2026-11-18 00:38:37,761 [info] live_clipper.video_processor: Rendering vertical video clip with hook to: 2026-11-18_00-38-18_Tarik-Fucking-guys-dont-want-to-win.mp4
+2026-11-18 00:39:10,423 [info] live_clipper.worker: [CLIP CREATED] 00:38:18 | Tarik: Fucking guys dont want to win | clips/2026-11-18_00-38-18_Tarik-Fucking-guys-dont-want-to-win.mp4
+2026-11-18 00:39:19,301 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -9.5 LUFS (baseline: -15.2 LUFS, spike: +5.7 dB)
+2026-11-18 00:40:20,272 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 15 msgs/5s (baseline: 2.4, multiplier: 6.4x)
+2026-11-18 00:40:20,273 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:40:07! Chat: 15 (base: 2.4), Audio: -18.3 LUFS (base: -12.9 LUFS). Clip: [1794942577.0 -> 1794942622.0]
+2026-11-18 00:40:20,274 [info] live_clipper.buffer_manager: Locked 5 chunks for range [1794942577.0, 1794942622.0]
+2026-11-18 00:40:20,274 [info] live_clipper.worker: Queued clip job for event at 1794942607.0 (queue size: 1)
+2026-11-18 00:40:20,274 [info] live_clipper.worker: Waiting 1.7s for post-event reaction recording to complete...
+2026-11-18 00:40:22,285 [info] live_clipper.buffer_manager: Locked 5 chunks for range [1794942577.0, 1794942622.0]
+2026-11-18 00:40:22,285 [info] live_clipper.worker: Stitching 5 chunks for 45s clip...
+2026-11-18 00:40:22,658 [info] live_clipper.worker: Transcribing clip audio with faster-whisper...
+2026-11-18 00:40:22,829 [info] faster_whisper: Processing audio with duration 00:43.004
+2026-11-18 00:40:24,162 [info] faster_whisper: Detected language 'en' with probability 1.00
+2026-11-18 00:40:28,626 [info] live_clipper.transcriber: Transcription complete: 13 subtitle cues generated
+2026-11-18 00:40:28,626 [info] live_clipper.worker: Rendering final vertical video with hook banner & captions...
+2026-11-18 00:40:28,949 [info] live_clipper.video_processor: Rendering vertical video clip with hook to: 2026-11-18_00-40-07_Tarik-Im-a-mortal-to-now-i.mp4
+2026-11-18 00:41:10,669 [info] live_clipper.worker: [CLIP CREATED] 00:40:07 | Tarik: Im a mortal to now i | clips/2026-11-18_00-40-07_Tarik-Im-a-mortal-to-now-i.mp4
+2026-11-18 00:41:37,552 [info] live_clipper.app: Stopping all services...
+2026-11-18 00:41:38,742 [info] live_clipper.recorder: Recording engine stopped
+2026-11-18 00:41:38,742 [warning] live_clipper.chat_monitor: Twitch IRC connection dropped: [Errno 9] Bad file descriptor
+2026-11-18 00:41:38,742 [info] live_clipper.chat_monitor: Chat monitor stopped
+2026-11-18 00:41:38,784 [info] live_clipper.worker: Background processing worker stopped
+2026-11-18 00:41:38,784 [info] live_clipper.app: Live Clipper stopped cleanly
+2026-11-18 00:46:41,398 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/Anti-Clips/live-clipper/models/faster-whisper-base' on device 'cpu' with 'int8'...
