@@ -5,6 +5,7 @@ import os
 import sys
 import logging
 import platform
+import textwrap
 from pathlib import Path
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
@@ -259,7 +260,8 @@ class Transcriber:
     ) -> bool:
         """
         Renders an engaging, stylish 2-tier viral hook banner (TikTok / Reels style)
-        with frosted glass card, top gold badge, full-color emojis, and bold shadow text.
+        with frosted glass card, top gold badge with lightning emojis, full-color emojis,
+        dynamic line wrapping, and auto-scaled text to guarantee zero overflow.
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -268,48 +270,80 @@ class Transcriber:
             img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            # Fonts
-            font_size = 42
+            clean_text = hook_text.strip().upper()
+            if len(clean_text) <= 22:
+                lines = [clean_text]
+            else:
+                lines = textwrap.wrap(clean_text, width=22, break_long_words=False)
+                if len(lines) > 2:
+                    lines = textwrap.wrap(clean_text, width=26, break_long_words=False)[:2]
+
+            max_content_w = 820
+            font_size = 40 if len(lines) == 1 else 36
+
+            line_measures: List[Tuple[List[Tuple[str, bool]], List[int], int]] = []
+            while font_size >= 24:
+                if self.font_path:
+                    try:
+                        font_main = ImageFont.truetype(self.font_path, font_size)
+                    except Exception:
+                        font_main = ImageFont.load_default()
+                else:
+                    font_main = ImageFont.load_default()
+
+                strike = 40 if font_size >= 36 else 32
+                font_emoji = None
+                if self.emoji_font_path and os.path.exists(self.emoji_font_path):
+                    try:
+                        font_emoji = ImageFont.truetype(self.emoji_font_path, strike)
+                    except Exception:
+                        font_emoji = None
+
+                fits = True
+                measures: List[Tuple[List[Tuple[str, bool]], List[int], int]] = []
+                for line in lines:
+                    segs = self._split_text_and_emojis(line)
+                    total_w = 0
+                    seg_w_list: List[int] = []
+                    for txt, is_em in segs:
+                        f = font_emoji if (is_em and font_emoji) else font_main
+                        bbox = draw.textbbox((0, 0), txt, font=f)
+                        w = bbox[2] - bbox[0]
+                        seg_w_list.append(w)
+                        total_w += w
+                    if total_w > max_content_w:
+                        fits = False
+                        break
+                    measures.append((segs, seg_w_list, total_w))
+
+                if fits:
+                    line_measures = measures
+                    break
+                font_size -= 2
+
             if self.font_path:
                 try:
-                    font_main = ImageFont.truetype(self.font_path, font_size)
-                    font_badge = ImageFont.truetype(self.font_path, 21)
+                    font_badge = ImageFont.truetype(self.font_path, 18)
                 except Exception:
-                    font_main = ImageFont.load_default()
                     font_badge = ImageFont.load_default()
             else:
-                font_main = ImageFont.load_default()
                 font_badge = ImageFont.load_default()
 
-            font_emoji = None
-            if self.emoji_font_path:
+            font_badge_emoji = None
+            if self.emoji_font_path and os.path.exists(self.emoji_font_path):
                 try:
-                    font_emoji = ImageFont.truetype(self.emoji_font_path, 40)
+                    font_badge_emoji = ImageFont.truetype(self.emoji_font_path, 20)
                 except Exception:
-                    font_emoji = None
+                    font_badge_emoji = None
 
-            clean_text = hook_text.strip().upper()
-            if len(clean_text) > 44:
-                clean_text = clean_text[:42] + "..."
-
-            # Parse segments
-            segments = self._split_text_and_emojis(clean_text)
-            total_w = 0
-            seg_widths = []
-            for txt, is_em in segments:
-                f = font_emoji if (is_em and font_emoji) else font_main
-                bbox = draw.textbbox((0, 0), txt, font=f)
-                w = bbox[2] - bbox[0]
-                seg_widths.append(w)
-                total_w += w
-
-            # Card layout in top safe area (y ≈ 190)
-            card_w = min(width - 60, max(560, total_w + 80))
-            card_h = 132
+            max_line_w = max((m[2] for m in line_measures), default=400)
+            card_w = min(width - 80, max(560, max_line_w + 70))
+            line_height = int(font_size * 1.35)
+            card_h = 75 + (len(lines) * line_height)
             card_x = (width - card_w) // 2
             card_y = 190
 
-            # 1. Frosted obsidian glass card with gold outline
+            # 1. Glass card with neon gold border
             draw.rounded_rectangle(
                 [card_x, card_y, card_x + card_w, card_y + card_h],
                 radius=22,
@@ -318,44 +352,48 @@ class Transcriber:
                 width=3
             )
 
-            # 2. Top Tag Badge (e.g. ⚡ VIRAL STREAM HIGHLIGHT ⚡)
-            badge_text = "⚡ VIRAL STREAM HIGHLIGHT ⚡"
-            badge_bbox = draw.textbbox((0, 0), badge_text, font=font_badge)
-            badge_w = badge_bbox[2] - badge_bbox[0]
-            badge_x = (width - badge_w) // 2
-            badge_y = card_y + 14
-            draw.text((badge_x, badge_y), badge_text, font=font_badge, fill=(255, 215, 0, 255))
+            # 2. Top Badge with lightning color emojis
+            badge_title = " VIRAL STREAM HIGHLIGHT "
+            bbox_title = draw.textbbox((0, 0), badge_title, font=font_badge)
+            w_title = bbox_title[2] - bbox_title[0]
+            w_em = 20
+            badge_total_w = w_em + w_title + w_em
+            bx = (width - badge_total_w) // 2
+            by = card_y + 14
 
-            # 3. Main Hook Text & Color Emojis
-            start_x = (width - total_w) // 2
-            text_y = card_y + 55
-            curr_x = start_x
+            if font_badge_emoji:
+                draw.text((bx, by - 2), "⚡", font=font_badge_emoji, embedded_color=True)
+            draw.text((bx + w_em, by), badge_title, font=font_badge, fill=(255, 215, 0, 255))
+            if font_badge_emoji:
+                draw.text((bx + w_em + w_title, by - 2), "⚡", font=font_badge_emoji, embedded_color=True)
 
-            for (txt, is_em), w in zip(segments, seg_widths):
-                f = font_emoji if (is_em and font_emoji) else font_main
-                if is_em and font_emoji:
-                    # Draw color emoji
-                    draw.text((curr_x, text_y - 6), txt, font=f, embedded_color=True)
-                else:
-                    # Draw text drop shadow
-                    draw.text(
-                        (curr_x + 3, text_y + 3),
-                        txt,
-                        font=f,
-                        fill=(0, 0, 0, 240),
-                        stroke_width=2,
-                        stroke_fill=(0, 0, 0, 240)
-                    )
-                    # Draw main text in bold white
-                    draw.text(
-                        (curr_x, text_y),
-                        txt,
-                        font=f,
-                        fill=(255, 255, 255, 255),
-                        stroke_width=3,
-                        stroke_fill=(0, 0, 0, 255)
-                    )
-                curr_x += w
+            # 3. Main Hook Lines
+            start_y = card_y + 46
+            for i, (segs, seg_w_list, line_w) in enumerate(line_measures):
+                curr_y = start_y + (i * line_height)
+                curr_x = (width - line_w) // 2
+                for (txt, is_em), w in zip(segs, seg_w_list):
+                    f = font_emoji if (is_em and font_emoji) else font_main
+                    if is_em and font_emoji:
+                        draw.text((curr_x, curr_y - 2), txt, font=f, embedded_color=True)
+                    else:
+                        draw.text(
+                            (curr_x + 3, curr_y + 3),
+                            txt,
+                            font=f,
+                            fill=(0, 0, 0, 240),
+                            stroke_width=2,
+                            stroke_fill=(0, 0, 0, 240)
+                        )
+                        draw.text(
+                            (curr_x, curr_y),
+                            txt,
+                            font=f,
+                            fill=(255, 255, 255, 255),
+                            stroke_width=3,
+                            stroke_fill=(0, 0, 0, 255)
+                        )
+                    curr_x += w
 
             img.save(str(output_path), "PNG")
             return True
