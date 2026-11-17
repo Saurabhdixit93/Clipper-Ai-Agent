@@ -91,12 +91,19 @@ class TwitchChatMonitor:
 
     def get_current_chat_rate(self, timestamp: Optional[float] = None) -> float:
         """
-        Returns the chat rate (message count in the 5-second bucket for timestamp or current time).
+        Returns the true rolling message count in the last 5 seconds [now - 5s, now].
+        Avoids dropping to 0 at bucket boundaries.
         """
         now = timestamp if timestamp is not None else time.time()
-        current_bucket = int(now // self.bucket_sec)
+        cutoff = now - self.bucket_sec
         with self._lock:
-            return float(self.buckets.get(current_bucket, 0))
+            # Check recent messages within last 5 seconds
+            cnt = sum(1 for m in self.recent_messages if m.timestamp >= cutoff)
+            if cnt > 0:
+                return float(cnt)
+            # Fallback to current or previous bucket
+            curr_b = int(now // self.bucket_sec)
+            return float(max(self.buckets.get(curr_b, 0), self.buckets.get(curr_b - 1, 0)))
 
     def get_rolling_chat_average(self, exclude_current_spike: bool = True, timestamp: Optional[float] = None) -> float:
         """
@@ -159,7 +166,7 @@ class TwitchChatMonitor:
     def _parse_line(self, line: str) -> Optional[Tuple[str, str]]:
         """
         Parse IRC raw line into (username, message).
-        Twitch format: :username!username@username.tmi.twitch.tv PRIVMSG #channel :message
+        Supports both tagged and standard Twitch IRC formats.
         """
         if not line or "PRIVMSG" not in line:
             return None
@@ -168,11 +175,21 @@ class TwitchChatMonitor:
             prefix = parts[0]
             msg_part = parts[1]
             
-            # Extract username
+            # Extract username (from tags or hostmask)
             username = "unknown"
-            if prefix.startswith(":"):
-                user_host = prefix[1:].split("!", 1)[0]
-                username = user_host.strip()
+            if "display-name=" in prefix:
+                try:
+                    dn = prefix.split("display-name=", 1)[1].split(";", 1)[0]
+                    if dn:
+                        username = dn
+                except Exception:
+                    pass
+            if username == "unknown":
+                if "!" in prefix:
+                    u_part = prefix.split("!", 1)[0]
+                    username = u_part.split(":")[-1].strip()
+                elif prefix.startswith(":"):
+                    username = prefix[1:].split("!", 1)[0].strip()
                 
             # Extract message text
             if ":" in msg_part:
@@ -207,7 +224,8 @@ class TwitchChatMonitor:
         self._socket.settimeout(60.0)
         self._socket.connect((self.config.irc_host, self.config.irc_port))
 
-        # Send Twitch IRC handshake
+        # Send Twitch IRC handshake with capabilities
+        self._socket.send(f"CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership\r\n".encode("utf-8"))
         self._socket.send(f"PASS SCHMOOPIIE\r\n".encode("utf-8"))
         self._socket.send(f"NICK {self.nick}\r\n".encode("utf-8"))
 
