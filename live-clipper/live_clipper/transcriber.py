@@ -243,7 +243,7 @@ class Transcriber:
             elif em == curr_is_em:
                 curr_str += ch
             else:
-                segments.append((curr_str, bool(curr_is_em)))
+                segments.append((curr_str, curr_is_em))
                 curr_str = ch
                 curr_is_em = em
         if curr_str and curr_is_em is not None:

@@ -52,7 +52,7 @@ class TitleGenerator:
         """Query local Gemini CLI."""
         if not self.gemini_bin:
             return None
-        gemini_bin = str(self.gemini_bin)
+        gemini_bin = self.gemini_bin
 
         chat_sample = " | ".join(f"{m.username}: {m.message}" for m in chat_messages[-15:])
         prompt = (
@@ -156,7 +156,7 @@ class TitleGenerator:
         # Try Gemini CLI if available
         if self.gemini_bin:
             try:
-                gemini_bin = str(self.gemini_bin)
+                gemini_bin = self.gemini_bin
                 prompt = (
                     f"Create an ultra-engaging, viral 4 to 7 word hook banner in ALL CAPS with 2 emojis for a TikTok/Reels vertical clip of {channel_name}.\n"
                     f"Title: {title}\n"
