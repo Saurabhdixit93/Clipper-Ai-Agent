@@ -552,3 +552,43 @@ NameError: name 'time' is not defined
 2026-11-18 00:47:54,901 [info] live_clipper.chat_monitor: Chat monitor stopped
 2026-11-18 00:47:55,791 [info] live_clipper.worker: Background processing worker stopped
 2026-11-18 00:47:55,792 [info] live_clipper.app: Live Clipper stopped cleanly
+2026-11-18 00:49:31,606 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/Anti-Clips/live-clipper/models/faster-whisper-base' on device 'cpu' with 'int8'...
+2026-11-18 00:49:32,188 [info] live_clipper.transcriber: Faster-whisper model successfully loaded
+2026-11-18 00:49:36,249 [info] live_clipper.app: Starting Twitch Live Clipper for channel: #tarik
+2026-11-18 00:49:36,249 [info] live_clipper.chat_monitor: Connecting to irc.chat.twitch.tv:6667...
+2026-11-18 00:49:36,250 [info] live_clipper.chat_monitor: Chat monitor started for #tarik with nick justinfan12129
+2026-11-18 00:49:36,250 [info] live_clipper.worker: Background processing worker started
+2026-11-18 00:49:36,251 [info] live_clipper.recorder: Recording engine started for channel: tarik
+2026-11-18 00:49:37,360 [info] live_clipper.chat_monitor: Successfully joined #tarik on Twitch IRC
+2026-11-18 00:49:39,623 [info] live_clipper.recorder: Stream is LIVE! Quality selected: 720p60
+2026-11-18 00:49:39,624 [info] live_clipper.recorder: Starting Streamlink: /Users/saurabhdixit/Anti-Clips/live-clipper/.venv/bin/streamlink --stdout --twitch-disable-ads https://www.twitch.tv/tarik 720p60
+2026-11-18 00:49:39,633 [info] live_clipper.recorder: Starting FFmpeg: ffmpeg -y -v warning -i pipe:0 -c copy -f segment -segment_time 10 -reset_timestamps 1 -strftime 1 -segment_list /Users/saurabhdixit/Anti-Clips/live-clipper/temp/segments_1794943179.csv -segment_list_type csv /Users/saurabhdixit/Anti-Clips/live-clipper/temp/chunk_%s.mp4
+2026-11-18 00:49:51,350 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -10.1 LUFS (baseline: -24.0 LUFS, spike: +13.9 dB)
+2026-11-18 00:50:15,253 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 20 msgs/5s (baseline: 0.5, multiplier: 40.0x)
+2026-11-18 00:50:15,253 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:50:01! Chat: 20 (base: 0.5), Audio: -21.9 LUFS (base: -11.8 LUFS). Clip: [1794943171.0 -> 1794943216.0]
+2026-11-18 00:50:15,253 [info] live_clipper.buffer_manager: Locked 3 chunks for range [1794943171.0, 1794943216.0]
+2026-11-18 00:50:15,253 [info] live_clipper.worker: Queued clip job for event at 1794943201.0 (queue size: 1)
+2026-11-18 00:50:15,254 [info] live_clipper.worker: Waiting 0.7s for post-event reaction recording to complete...
+2026-11-18 00:50:16,260 [info] live_clipper.buffer_manager: Locked 3 chunks for range [1794943171.0, 1794943216.0]
+2026-11-18 00:50:16,260 [info] live_clipper.worker: Stitching 3 chunks for 45s clip...
+2026-11-18 00:50:16,577 [info] live_clipper.worker: Transcribing clip audio with faster-whisper...
+2026-11-18 00:50:16,792 [info] faster_whisper: Processing audio with duration 00:29.995
+2026-11-18 00:50:18,297 [info] faster_whisper: Detected language 'en' with probability 0.99
+2026-11-18 00:50:25,881 [info] live_clipper.transcriber: Transcription complete: 19 subtitle cues generated
+2026-11-18 00:50:25,883 [info] live_clipper.worker: Rendering final vertical video with hook banner & captions...
+2026-11-18 00:50:26,442 [info] live_clipper.video_processor: Rendering vertical video clip with hook to: 2026-11-18_00-50-01_Tarik-I-got-a-fucking-idiot-on.mp4
+2026-11-18 00:51:09,785 [info] live_clipper.worker: [CLIP CREATED] 00:50:01 | Tarik: I got a fucking idiot on | clips/2026-11-18_00-50-01_Tarik-I-got-a-fucking-idiot-on.mp4
+2026-11-18 00:51:45,265 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -8.7 LUFS (baseline: -14.2 LUFS, spike: +5.5 dB)
+2026-11-18 00:52:08,669 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 33 msgs/5s (baseline: 1.4, multiplier: 23.3x)
+2026-11-18 00:52:08,669 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:51:50! Chat: 33 (base: 1.4), Audio: -11.6 LUFS (base: -13.2 LUFS). Clip: [1794943280.0 -> 1794943325.0]
+2026-11-18 00:52:08,670 [info] live_clipper.buffer_manager: Locked 5 chunks for range [1794943280.0, 1794943325.0]
+2026-11-18 00:52:08,670 [info] live_clipper.worker: Queued clip job for event at 1794943310.0 (queue size: 1)
+2026-11-18 00:52:08,670 [info] live_clipper.worker: Stitching 5 chunks for 45s clip...
+2026-11-18 00:52:10,656 [info] live_clipper.worker: Transcribing clip audio with faster-whisper...
+2026-11-18 00:52:13,009 [info] faster_whisper: Processing audio with duration 00:43.004
+2026-11-18 00:52:18,883 [info] live_clipper.app: Stopping all services...
+2026-11-18 00:52:19,886 [info] live_clipper.recorder: Recording engine stopped
+2026-11-18 00:52:22,891 [info] live_clipper.chat_monitor: Chat monitor stopped
+2026-11-18 00:52:23,906 [info] faster_whisper: Detected language 'en' with probability 0.99
+2026-11-18 00:52:27,896 [info] live_clipper.worker: Background processing worker stopped
+2026-11-18 00:52:27,896 [info] live_clipper.app: Live Clipper stopped cleanly
