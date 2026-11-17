@@ -189,8 +189,8 @@ class Transcriber:
 
             # Measure text
             bbox = draw.textbbox((0, 0), text, font=font)
-            text_w = bbox[2] - bbox[0]
-            text_h = bbox[3] - bbox[1]
+            text_w = int(bbox[2] - bbox[0])
+            text_h = int(bbox[3] - bbox[1])
 
             # Position: Centered horizontally, positioned right below gameplay frame (y ≈ 1380)
             x = (width - text_w) // 2
@@ -303,12 +303,12 @@ class Transcriber:
                 measures: List[Tuple[List[Tuple[str, bool]], List[int], int]] = []
                 for line in lines:
                     segs = self._split_text_and_emojis(line)
-                    total_w = 0
+                    total_w: int = 0
                     seg_w_list: List[int] = []
                     for txt, is_em in segs:
                         f = font_emoji if (is_em and font_emoji) else font_main
                         bbox = draw.textbbox((0, 0), txt, font=f)
-                        w = bbox[2] - bbox[0]
+                        w = int(bbox[2] - bbox[0])
                         seg_w_list.append(w)
                         total_w += w
                     if total_w > max_content_w:
@@ -355,7 +355,7 @@ class Transcriber:
             # 2. Top Badge with lightning color emojis
             badge_title = " VIRAL STREAM HIGHLIGHT "
             bbox_title = draw.textbbox((0, 0), badge_title, font=font_badge)
-            w_title = bbox_title[2] - bbox_title[0]
+            w_title = int(bbox_title[2] - bbox_title[0])
             w_em = 20
             badge_total_w = w_em + w_title + w_em
             bx = (width - badge_total_w) // 2

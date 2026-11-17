@@ -592,3 +592,44 @@ NameError: name 'time' is not defined
 2026-11-18 00:52:23,906 [info] faster_whisper: Detected language 'en' with probability 0.99
 2026-11-18 00:52:27,896 [info] live_clipper.worker: Background processing worker stopped
 2026-11-18 00:52:27,896 [info] live_clipper.app: Live Clipper stopped cleanly
+2026-11-18 00:56:08,773 [info] live_clipper.buffer_manager: Locked 1 chunks for range [95.0, 105.0]
+2026-11-18 00:56:09,275 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/.cache/huggingface/hub/models--Systran--faster-whisper-base/snapshots/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66' on device 'cpu' with 'int8'...
+2026-11-18 00:56:10,260 [info] live_clipper.transcriber: Faster-whisper model successfully loaded
+2026-11-18 00:56:16,192 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 75 msgs/5s (baseline: 3.4, multiplier: 22.0x)
+2026-11-18 00:56:16,404 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 65 msgs/5s (baseline: 3.6, multiplier: 18.1x)
+2026-11-18 00:56:16,577 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 55 msgs/5s (baseline: 3.8, multiplier: 14.7x)
+2026-11-18 00:56:16,897 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -23.6 LUFS (baseline: -47.8 LUFS, spike: +24.1 dB)
+2026-11-18 00:56:16,898 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 45 msgs/5s (baseline: 3.9, multiplier: 11.5x)
+2026-11-18 00:56:16,898 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:55:55! Chat: 45 (base: 3.9), Audio: -23.6 LUFS (base: -47.8 LUFS). Clip: [1794943525.3 -> 1794943570.3]
+2026-11-18 00:56:16,898 [info] live_clipper.buffer_manager: Locked 5 chunks for range [1794943525.3, 1794943570.3]
+2026-11-18 00:56:16,898 [info] live_clipper.worker: Queued clip job for event at 1794943555.3 (queue size: 1)
+2026-11-18 00:56:17,191 [info] live_clipper.worker: Stitching 5 chunks for 45s clip...
+2026-11-18 00:56:17,199 [info] live_clipper.worker: Background processing worker started
+2026-11-18 00:56:17,453 [info] live_clipper.worker: Transcribing clip audio with faster-whisper...
+2026-11-18 00:56:17,627 [info] faster_whisper: Processing audio with duration 00:45.140
+2026-11-18 00:56:18,911 [info] faster_whisper: Detected language 'en' with probability 0.74
+2026-11-18 00:56:21,958 [info] live_clipper.transcriber: Transcription complete: 1 subtitle cues generated
+2026-11-18 00:56:21,959 [info] live_clipper.worker: Rendering final vertical video with hook banner & captions...
+2026-11-18 00:56:22,027 [info] live_clipper.video_processor: Rendering vertical video clip with hook to: 2026-11-18_00-55-55_Ishowspeed-Hits-The-Iconic-SIUUU!.mp4
+2026-11-18 00:56:38,294 [info] live_clipper.worker: [CLIP CREATED] 00:55:55 | Ishowspeed Hits The Iconic SIUUU! | clips/2026-11-18_00-55-55_Ishowspeed-Hits-The-Iconic-SIUUU!.mp4
+2026-11-18 00:56:40,296 [info] live_clipper.worker: Background processing worker stopped
+2026-11-18 00:56:40,395 [info] live_clipper.app: Stopping all services...
+2026-11-18 00:56:40,396 [info] live_clipper.recorder: Recording engine stopped
+2026-11-18 00:56:40,396 [info] live_clipper.chat_monitor: Chat monitor stopped
+2026-11-18 00:56:40,396 [info] live_clipper.worker: Background processing worker stopped
+2026-11-18 00:56:40,396 [info] live_clipper.app: Live Clipper stopped cleanly
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -15.0 LUFS (baseline: -24.0 LUFS, spike: +9.0 dB)
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 40 msgs/5s (baseline: 10.0, multiplier: 4.0x)
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:56:42! Chat: 40 (base: 10.0), Audio: -15.0 LUFS (base: -24.0 LUFS). Clip: [1794943572.4 -> 1794943617.4]
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -10.0 LUFS (baseline: -24.0 LUFS, spike: +14.0 dB)
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 50 msgs/5s (baseline: 10.0, multiplier: 5.0x)
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -15.0 LUFS (baseline: -24.0 LUFS, spike: +9.0 dB)
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 45 msgs/5s (baseline: 10.0, multiplier: 4.5x)
+2026-11-18 00:56:40,404 [info] live_clipper.trigger_engine: 🔥 DUAL TRIGGER FIRED at 00:56:48! Chat: 45 (base: 10.0), Audio: -15.0 LUFS (base: -24.0 LUFS). Clip: [1794943578.4 -> 1794943623.4]
+2026-11-18 00:56:40,405 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -15.0 LUFS (baseline: -24.0 LUFS, spike: +9.0 dB)
+2026-11-18 00:56:40,405 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 45 msgs/5s (baseline: 10.0, multiplier: 4.5x)
+2026-11-18 00:56:40,405 [info] live_clipper.trigger_engine: AUDIO SPIKE detected! Loudness: -12.0 LUFS (baseline: -24.0 LUFS, spike: +12.0 dB)
+2026-11-18 00:56:40,405 [info] live_clipper.trigger_engine: CHAT SPIKE detected! Rate: 50 msgs/5s (baseline: 10.0, multiplier: 5.0x)
+2026-11-18 00:56:40,405 [info] live_clipper.transcriber: Loading faster-whisper model from '/Users/saurabhdixit/Anti-Clips/live-clipper/models/faster-whisper-base' on device 'cpu' with 'int8'...
+2026-11-18 00:56:43,757 [info] live_clipper.transcriber: Faster-whisper model successfully loaded
+2026-11-18 00:56:44,120 [info] live_clipper.video_processor: Rendering vertical video clip with hook to: out_vertical.mp4
