@@ -71,7 +71,7 @@ class TriggerEngine:
     @property
     def trigger_status(self) -> str:
         """Human-readable status for the live dashboard."""
-        if not self.chat_monitor.is_warmed_up:
+        if getattr(self.config, "platform", "twitch") == "twitch" and not self.chat_monitor.is_warmed_up:
             return f"Warmup ({self.chat_monitor.warmup_progress_pct:.0f}%)"
         if self.is_in_cooldown:
             return f"Cooldown ({self.cooldown_remaining:.0f}s)"
@@ -109,8 +109,8 @@ class TriggerEngine:
         now = current_time or time.time()
 
         with self._lock:
-            # 1. Warmup guard: Do not evaluate triggers before 5 complete minutes of valid chat data
-            if not self.chat_monitor.is_warmed_up:
+            # 1. Warmup guard: Enforce warmup for Twitch chat data
+            if getattr(self.config, "platform", "twitch") == "twitch" and not self.chat_monitor.is_warmed_up:
                 return None
 
             # 2. Cooldown guard

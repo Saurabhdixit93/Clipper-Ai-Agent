@@ -140,27 +140,31 @@ class LiveClipperApp:
             logger.error(f"Error handling completed chunk {chunk.path.name}: {e}", exc_info=True)
 
     def check_stream_preflight(self) -> bool:
-        """Check if channel is live before starting services."""
-        print(f"[*] Checking Twitch stream status for #{self.config.channel}...")
+        """Check if stream is live before starting services."""
+        plat = self.config.platform.upper()
+        target = self.config.stream_url or f"#{self.config.channel}"
+        print(f"[*] Checking {plat} stream status for {target}...")
         is_online, quality, _ = self.recorder.check_stream_online()
         if not is_online:
             print(f"\n╔{'═'*66}╗")
-            print(f"║ [STATUS: OFFLINE] Channel #{self.config.channel.upper():<37} ║")
+            print(f"║ [STATUS: OFFLINE] {plat} Stream: {target[:35]:<35} ║")
             print(f"║ Stream is currently NOT live.                                    ║")
             print(f"║ Exiting with status: OFFLINE.                                    ║")
             print(f"║ (Pass --retry-offline to stay in standby until stream starts)     ║")
             print(f"╚{'═'*66}╝\n")
             return False
-        print(f"[+] Channel #{self.config.channel} is LIVE! Selected quality: {quality}")
+        print(f"[+] {plat} Stream {target} is LIVE! Selected quality: {quality}")
+        print(f"[+] Video Layout: {self.config.video_layout.upper()} (Top Streamer, Bottom Game)")
         return True
 
     def start(self):
         """Start all services."""
         self._running = True
         self.start_time = time.time()
-        logger.info(f"Starting Twitch Live Clipper for channel: #{self.config.channel}")
+        logger.info(f"Starting Live Clipper for {self.config.platform.upper()}: {self.config.stream_url}")
         
-        self.chat_monitor.start()
+        if self.config.platform == "twitch":
+            self.chat_monitor.start()
         self.worker.start()
         self.recorder.start()
         self.dashboard.start()
@@ -171,7 +175,8 @@ class LiveClipperApp:
         logger.info("Stopping all services...")
         self.dashboard.stop()
         self.recorder.stop()
-        self.chat_monitor.stop()
+        if self.config.platform == "twitch":
+            self.chat_monitor.stop()
         self.worker.stop()
         logger.info("Live Clipper stopped cleanly")
 
@@ -219,8 +224,12 @@ class LiveClipperApp:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Twitch Live Clipper")
-    parser.add_argument("--channel", type=str, default="ishowspeed", help="Twitch channel to monitor")
+    parser = argparse.ArgumentParser(description="Live Clipper for Twitch and YouTube")
+    parser.add_argument("--url", type=str, default="", help="Direct Twitch or YouTube stream link (e.g. https://youtube.com/live/xyz or https://twitch.tv/xyz)")
+    parser.add_argument("--channel", type=str, default="ishowspeed", help="Twitch channel or streamer name (default: ishowspeed)")
+    parser.add_argument("--layout", type=str, choices=["split", "fit_blur"], default="split", help="Video layout: split (top streamer, bottom game) or fit_blur (default: split)")
+    parser.add_argument("--facecam", type=str, choices=["auto", "top-right", "bottom-right", "top-left", "bottom-left", "center"], default="auto", help="Streamer facecam position for split layout (default: auto)")
+    parser.add_argument("--divider", type=str, choices=["yellow", "white", "cyan", "none"], default="yellow", help="Split screen divider line color (default: yellow)")
     parser.add_argument("--quality", type=str, default="720p,720p60,best", help="Preferred stream quality")
     parser.add_argument("--warmup", type=int, default=300, help="Warmup duration in seconds before triggers")
     parser.add_argument("--cooldown", type=int, default=120, help="Cooldown in seconds between clips")
@@ -235,6 +244,10 @@ def main():
 
     config = ClipperConfig(
         channel=args.channel,
+        stream_url=args.url,
+        video_layout=args.layout,
+        facecam_position=args.facecam,
+        divider_color=args.divider,
         preferred_quality=args.quality,
         warmup_duration_sec=args.warmup,
         cooldown_sec=args.cooldown,

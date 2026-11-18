@@ -1,6 +1,7 @@
 """Configuration parameters for live-clipper."""
 
 import os
+import re
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
@@ -10,8 +11,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 @dataclass
 class ClipperConfig:
     channel: str = "ishowspeed"
-    stream_url: str = "https://www.twitch.tv/ishowspeed"
+    stream_url: str = ""
+    platform: str = "twitch"  # "twitch" or "youtube"
     preferred_quality: str = "720p,720p60,best"
+    
+    # Video Layout Settings
+    video_layout: str = "split" # "split" (top streamer, bottom game) or "fit_blur"
+    facecam_position: str = "auto" # "auto", "top-right", "bottom-right", "top-left", "bottom-left", "center"
+    divider_color: str = "yellow" # "yellow", "white", "cyan", "none"
     
     # Buffer and Chunk settings
     chunk_duration_sec: int = 10
@@ -32,7 +39,7 @@ class ClipperConfig:
     chat_spike_multiplier: float = 3.0 # Chat activity >= 3x rolling average
     audio_spike_db: float = 6.0        # Audio loudness >= rolling average + 6 dB
     min_chat_rate: int = 3             # Minimum msgs/5s for a chat spike
-    trigger_mode: str = "dual"         # "dual" (chat & audio), "any" (either), "chat", "audio"
+    trigger_mode: str = "dual"         # "dual", "any", "chat", "audio"
     correlation_window_sec: float = 15.0 # Both events within 15 seconds
     reaction_delay_sec: float = 15.0     # Wait 15s for reaction after trigger
     clip_pre_sec: float = 30.0          # 30s before event
@@ -57,11 +64,31 @@ class ClipperConfig:
     # Gemini CLI
     gemini_cli_path: str = "gemini"
     
-    # Offline behavior: if False, exits immediately when channel is offline
+    # Offline behavior
     retry_offline: bool = False
     
     def __post_init__(self):
-        self.stream_url = f"https://www.twitch.tv/{self.channel.lower()}"
+        # Detect platform from stream_url if provided
+        if self.stream_url:
+            clean_url = self.stream_url.lower()
+            if "youtube.com" in clean_url or "youtu.be" in clean_url:
+                self.platform = "youtube"
+                # If channel is default, extract channel identifier from URL
+                if self.channel == "ishowspeed":
+                    if "@" in self.stream_url:
+                        match = re.search(r"@([a-zA-Z0-9_-]+)", self.stream_url)
+                        if match:
+                            self.channel = match.group(1)
+                    else:
+                        self.channel = "YouTubeStream"
+                # For YouTube streams without Twitch IRC, default trigger to audio or any
+                if self.trigger_mode == "dual":
+                    self.trigger_mode = "audio"
+            elif "twitch.tv" in clean_url:
+                self.platform = "twitch"
+        else:
+            self.platform = "twitch"
+            self.stream_url = f"https://www.twitch.tv/{self.channel.lower()}"
+            
         self.clips_dir.mkdir(parents=True, exist_ok=True)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-
