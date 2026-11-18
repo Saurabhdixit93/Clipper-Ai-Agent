@@ -1,1 +1,14 @@
+# Logs
 *.log
+*.log.*
+live-clipper.log
+
+# Temporary and cache
+temp/
+__pycache__/
+*.py[cod]
+.venv/
+
+# OS metadata
+.DS_Store
+Thumbs.db
