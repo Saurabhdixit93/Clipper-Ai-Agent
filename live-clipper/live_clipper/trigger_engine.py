@@ -41,11 +41,13 @@ class TriggerEngine:
         self,
         config: ClipperConfig,
         chat_monitor: TwitchChatMonitor,
-        audio_analyzer: AudioAnalyzer
+        audio_analyzer: AudioAnalyzer,
+        buffer_manager: Optional[object] = None
     ):
         self.config = config
         self.chat_monitor = chat_monitor
         self.audio_analyzer = audio_analyzer
+        self.buffer_manager = buffer_manager
         
         self._lock = threading.RLock()
         self.last_trigger_time: float = 0.0
@@ -113,7 +115,12 @@ class TriggerEngine:
             if getattr(self.config, "platform", "twitch") == "twitch" and not self.chat_monitor.is_warmed_up:
                 return None
 
-            # 2. Cooldown guard
+            # 2. Buffer guard: Ensure at least 40+ seconds of buffer exist before clipping
+            if self.buffer_manager and hasattr(self.buffer_manager, "get_buffer_duration"):
+                if self.buffer_manager.get_buffer_duration() < 40.0:
+                    return None
+
+            # 3. Cooldown guard
             if self.is_in_cooldown:
                 return None
 

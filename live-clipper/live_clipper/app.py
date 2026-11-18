@@ -82,7 +82,8 @@ class LiveClipperApp:
         self.trigger_engine = TriggerEngine(
             config=config,
             chat_monitor=self.chat_monitor,
-            audio_analyzer=self.audio_analyzer
+            audio_analyzer=self.audio_analyzer,
+            buffer_manager=self.buffer_manager
         )
 
         # 5. ML & Video processing pipelines

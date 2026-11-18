@@ -164,14 +164,15 @@ class ProcessingWorker:
 
         raw_clip_path = self.config.temp_dir / f"raw_assembly_{int(event.event_time)}.mp4"
 
-        # 2. Reconstruct and slice 45-second raw clip (20% -> 35%)
-        self.editing_status = f"Stitching {len(job.locked_chunks)} chunks"
+        # 2. Reconstruct and slice 40s+ raw clip (20% -> 35%)
+        target_dur = max(40.0, float(getattr(event, "clip_duration", 45.0)))
+        self.editing_status = f"Stitching {len(job.locked_chunks)} chunks ({int(target_dur)}s)"
         self.editing_progress_pct = 25.0
-        logger.info(f"Stitching {len(job.locked_chunks)} chunks for 45s clip...")
+        logger.info(f"Stitching {len(job.locked_chunks)} chunks for {target_dur:.1f}s clip (40s+)...")
         success = self.buffer_manager.reconstruct_clip(
             chunks=job.locked_chunks,
             target_start=event.clip_start_time,
-            target_duration=event.clip_duration,
+            target_duration=target_dur,
             output_path=raw_clip_path
         )
 

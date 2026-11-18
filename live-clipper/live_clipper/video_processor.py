@@ -6,7 +6,7 @@ import shutil
 import logging
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from PIL import Image
 from live_clipper.config import ClipperConfig
@@ -19,8 +19,8 @@ class VideoProcessor:
     """
     Renders 1080x1920 vertical videos with:
       Option A ("split" - default):
-        1. Top half (1080x960): Streamer facecam zoomed & centered.
-        2. Bottom half (1080x960): Gameplay screen centered preserving HUD.
+        1. Top half (1080x960): Streamer scene (facecam / creator zoomed & centered).
+        2. Bottom half (1080x960): Gameplay scene zoomed so the streamer/creator is hidden from it.
         3. Clean visual separator line between the two halves.
       Option B ("fit_blur"):
         Blurred background with centered gameplay.
@@ -31,62 +31,79 @@ class VideoProcessor:
     def __init__(self, config: ClipperConfig):
         self.config = config
 
-    def detect_facecam_crop(self, raw_clip_path: Path) -> str:
+    def get_layout_crops(self, raw_clip_path: Path) -> Tuple[str, str]:
         """
-        Samples a keyframe from the raw video and calculates optimal facecam crop
-        based on config.facecam_position or skin-tone density.
+        Determines the crop filters for:
+          - Top half (streamer facecam scene)
+          - Bottom half (gameplay zoomed in to hide the streamer's corner camera)
+        Returns: (top_crop_filter, bottom_crop_filter)
         """
-        pos = (self.config.facecam_position or "auto").lower()
+        pos = (getattr(self.config, "facecam_position", "auto") or "auto").lower()
+
         if pos == "top-right":
-            return "crop=iw*0.48:ih*0.75:iw*0.52:0"
+            top_filter = "crop=iw*0.48:ih*0.75:iw*0.52:0"
+            # Hide right-side streamer by zooming into left/center 68% of the gameplay screen
+            bottom_filter = "crop=iw*0.68:ih:0:0"
+            return top_filter, bottom_filter
         elif pos == "bottom-right":
-            return "crop=iw*0.48:ih*0.75:iw*0.52:ih*0.25"
+            top_filter = "crop=iw*0.48:ih*0.75:iw*0.52:ih*0.25"
+            bottom_filter = "crop=iw*0.68:ih:0:0"
+            return top_filter, bottom_filter
         elif pos == "top-left":
-            return "crop=iw*0.48:ih*0.75:0:0"
+            top_filter = "crop=iw*0.48:ih*0.75:0:0"
+            # Hide left-side streamer by zooming into right/center 68% of the gameplay screen
+            bottom_filter = "crop=iw*0.68:ih:iw*0.32:0"
+            return top_filter, bottom_filter
         elif pos == "bottom-left":
-            return "crop=iw*0.48:ih*0.75:0:ih*0.25"
+            top_filter = "crop=iw*0.48:ih*0.75:0:ih*0.25"
+            bottom_filter = "crop=iw*0.68:ih:iw*0.32:0"
+            return top_filter, bottom_filter
         elif pos == "center":
-            return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0"
-            
-        # "auto" detection
+            top_filter = "crop=ih*9/16:ih:(iw-ih*9/16)/2:0"
+            bottom_filter = "crop=iw*0.75:ih*0.75:(iw-iw*0.75)/2:(ih-ih*0.75)/2"
+            return top_filter, bottom_filter
+
+        # "auto" detection using skin density sampling
         try:
             import numpy as np
             sample_frame = self.config.temp_dir / f"sample_{int(time.time()*1000)}.jpg"
             cmd = ["ffmpeg", "-y", "-ss", "2", "-i", str(raw_clip_path), "-vframes", "1", str(sample_frame)]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            
+
             if sample_frame.exists():
                 im = Image.open(sample_frame).convert("YCbCr")
                 arr = np.array(im)
                 cb, cr = arr[:, :, 1], arr[:, :, 2]
                 skin_mask = (cb >= 77) & (cb <= 127) & (cr >= 133) & (cr <= 173)
                 h, w = skin_mask.shape
-                
+
                 scores = {
-                    "center": skin_mask[h//4:3*h//4, w//4:3*w//4].sum(),
-                    "top-right": skin_mask[0:h//2, int(w*0.55):w].sum(),
-                    "bottom-right": skin_mask[h//2:h, int(w*0.55):w].sum(),
-                    "top-left": skin_mask[0:h//2, 0:int(w*0.45)].sum(),
-                    "bottom-left": skin_mask[h//2:h, 0:int(w*0.45)].sum(),
+                    "center": int(skin_mask[h//4:3*h//4, w//4:3*w//4].sum()),
+                    "top-right": int(skin_mask[0:h//2, int(w*0.55):w].sum()),
+                    "bottom-right": int(skin_mask[h//2:h, int(w*0.55):w].sum()),
+                    "top-left": int(skin_mask[0:h//2, 0:int(w*0.45)].sum()),
+                    "bottom-left": int(skin_mask[h//2:h, 0:int(w*0.45)].sum()),
                 }
                 sample_frame.unlink(missing_ok=True)
-                best_loc = max(scores, key=scores.get)
-                logger.info(f"Auto-detected streamer facecam position: {best_loc}")
                 
+                # Resolves Pyright overload ambiguity cleanly with lambda
+                best_loc = max(scores.keys(), key=lambda k: scores[k])
+                logger.info(f"Auto-detected streamer location: {best_loc}")
+
                 if best_loc == "top-right":
-                    return "crop=iw*0.48:ih*0.75:iw*0.52:0"
+                    return "crop=iw*0.48:ih*0.75:iw*0.52:0", "crop=iw*0.68:ih:0:0"
                 elif best_loc == "bottom-right":
-                    return "crop=iw*0.48:ih*0.75:iw*0.52:ih*0.25"
+                    return "crop=iw*0.48:ih*0.75:iw*0.52:ih*0.25", "crop=iw*0.68:ih:0:0"
                 elif best_loc == "top-left":
-                    return "crop=iw*0.48:ih*0.75:0:0"
+                    return "crop=iw*0.48:ih*0.75:0:0", "crop=iw*0.68:ih:iw*0.32:0"
                 elif best_loc == "bottom-left":
-                    return "crop=iw*0.48:ih*0.75:0:ih*0.25"
+                    return "crop=iw*0.48:ih*0.75:0:ih*0.25", "crop=iw*0.68:ih:iw*0.32:0"
                 else:
-                    return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0"
+                    return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0", "crop=iw*0.72:ih*0.72:(iw-iw*0.72)/2:(ih-ih*0.72)/2"
         except Exception as e:
-            logger.debug(f"Auto facecam detection exception, falling back to center: {e}")
-            
-        return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0"
+            logger.debug(f"Auto facecam detection exception, falling back to default split: {e}")
+
+        return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0", "crop=iw*0.70:ih:0:0"
 
     def render_vertical_clip(
         self,
@@ -114,17 +131,19 @@ class VideoProcessor:
 
             # Check chosen layout mode
             if getattr(self.config, "video_layout", "split") == "split":
-                # SPLIT LAYOUT: Top Streamer Facecam (1080x960), Bottom Gameplay (1080x960)
-                face_crop_filter = self.detect_facecam_crop(raw_clip_path)
+                # SPLIT LAYOUT:
+                # Top half (1080x960): Streamer facecam scene
+                # Bottom half (1080x960): Gameplay zoomed in so the streamer camera is hidden
+                top_crop, bottom_crop = self.get_layout_crops(raw_clip_path)
                 divider_col = getattr(self.config, "divider_color", "yellow")
                 divider_filter = (
                     f",drawbox=y=958:h=4:color={divider_col}@0.95:t=fill"
                     if divider_col != "none" else ""
                 )
-                
+
                 filter_chains = [
-                    f"[0:v]{face_crop_filter},scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,eq=contrast=1.05:saturation=1.1[top]",
-                    "[0:v]scale=1080:960:force_original_aspect_ratio=decrease,pad=1080:960:(ow-iw)/2:(oh-ih)/2:black[bottom]",
+                    f"[0:v]{top_crop},scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,eq=contrast=1.05:saturation=1.1[top]",
+                    f"[0:v]{bottom_crop},scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960[bottom]",
                     f"[top][bottom]vstack=inputs=2{divider_filter}[base_v]"
                 ]
             else:
@@ -155,7 +174,7 @@ class VideoProcessor:
                         created_sub_imgs.append(sub_img_path)
                         input_index = len(cmd_inputs) // 2
                         cmd_inputs.extend(["-i", str(sub_img_path)])
-                        
+
                         next_stream = f"[v_sub_{idx}]" if idx < len(valid_cues) - 1 else "[final_v]"
                         start_t = max(0.0, cue.start_sec)
                         end_t = max(start_t + 0.3, cue.end_sec)
