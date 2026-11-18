@@ -12,3 +12,5 @@ __pycache__/
 # OS metadata
 .DS_Store
 Thumbs.db
+youtube_*
+client_*
