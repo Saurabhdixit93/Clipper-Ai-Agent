@@ -175,10 +175,9 @@ Uploads all prepared clips to your YouTube channel, waits for transcode processi
 ---
 
 ### 6. Verification & Self-Test
-To verify that everything is installed and functioning properly on the new machine:
+To verify that everything is installed, download the Whisper AI model, and ensure tests pass:
 ```bash
-cd live-clipper
-./.venv/bin/python -m unittest discover tests
+./start_test.sh
 ```
 *Expected Output:*
 ```text

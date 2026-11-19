@@ -110,10 +110,9 @@ python3.11 -m venv live-clipper/.venv
 ```
 
 ### 3. Verify Installation
-Run the 18-test unit and synthetic integration test suite:
+Run the 18-test unit and synthetic integration test suite (this also auto-downloads the Whisper model on first run):
 ```bash
-cd live-clipper
-./.venv/bin/python -m unittest discover tests
+./start_test.sh
 ```
 *Expected result:* `Ran 18 tests in ~30s — OK`.
 
@@ -241,8 +240,7 @@ To connect your YouTube channel:
 Anti-Clips includes a comprehensive test suite covering buffer management, IRC parsing, audio spike detection, split-screen video rendering, Whisper transcriptions, and end-to-end synthetic clipping:
 
 ```bash
-cd live-clipper
-./.venv/bin/python -m unittest discover tests
+./start_test.sh
 ```
 
 ---
