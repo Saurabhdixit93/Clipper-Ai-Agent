@@ -8,6 +8,8 @@ temp/
 __pycache__/
 *.py[cod]
 .venv/
+models/
+live-clipper/models/
 
 # OS metadata
 .DS_Store
