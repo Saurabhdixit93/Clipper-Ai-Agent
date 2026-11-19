@@ -1,4 +1,4 @@
-"""Vertical video rendering engine with split-screen (top streamer, bottom game) or blurred background."""
+"""Vertical video rendering engine with split-screen (top streamer camera box, bottom gameplay) or blurred background."""
 
 import os
 import time
@@ -19,8 +19,8 @@ class VideoProcessor:
     """
     Renders 1080x1920 vertical videos with:
       Option A ("split" - default):
-        1. Top half (1080x960): Streamer scene (facecam / creator zoomed & centered).
-        2. Bottom half (1080x960): Gameplay scene zoomed so the streamer/creator is hidden from it.
+        1. Top half (1080x960): Streamer camera box (the facecam box cropped & scaled to fill top half).
+        2. Bottom half (1080x960): The rest of the stream showing gameplay (streamer camera box cropped out).
         3. Clean visual separator line between the two halves.
       Option B ("fit_blur"):
         Blurred background with centered gameplay.
@@ -33,37 +33,54 @@ class VideoProcessor:
 
     def get_layout_crops(self, raw_clip_path: Path) -> Tuple[str, str]:
         """
-        Determines the crop filters for:
-          - Top half (streamer facecam scene)
-          - Bottom half (gameplay zoomed in to hide the streamer's corner camera)
+        Calculates FFmpeg crop filters for:
+          - Top half: Streamer camera box (isolated from corner and scaled to 1080x960)
+          - Bottom half: Gameplay screen (the rest of the stream, with camera box excluded)
         Returns: (top_crop_filter, bottom_crop_filter)
         """
         pos = (getattr(self.config, "facecam_position", "auto") or "auto").lower()
 
-        if pos == "top-right":
-            top_filter = "crop=iw*0.48:ih*0.75:iw*0.52:0"
-            # Hide right-side streamer by zooming into left/center 68% of the gameplay screen
-            bottom_filter = "crop=iw*0.68:ih:0:0"
+        if pos in ("speed", "mid-left", "speed-layout", "ishowspeed"):
+            # Streamer facecam box is on mid-left (Speed layout: x~0..21%, y~41..64%)
+            # Top: Streamer camera box cleanly framed and isolated
+            top_filter = "crop=iw*0.21:ih*0.23:0:ih*0.41"
+            # Bottom: Gameplay zoomed and shifted to the right so facecam, viewer count and minimap are hidden
+            bottom_filter = "crop=iw*0.76:ih:iw*0.22:0"
+            return top_filter, bottom_filter
+        elif pos == "top-right":
+            # Streamer camera box is in top-right corner (~30% width, ~40% height)
+            top_filter = "crop=iw*0.30:ih*0.40:iw*0.70:0"
+            # Gameplay is left/center of screen, excluding top-right camera
+            bottom_filter = "crop=iw*0.72:ih:0:0"
             return top_filter, bottom_filter
         elif pos == "bottom-right":
-            top_filter = "crop=iw*0.48:ih*0.75:iw*0.52:ih*0.25"
-            bottom_filter = "crop=iw*0.68:ih:0:0"
+            # Streamer camera box is in bottom-right corner
+            top_filter = "crop=iw*0.30:ih*0.40:iw*0.70:ih*0.60"
+            bottom_filter = "crop=iw*0.72:ih:0:0"
             return top_filter, bottom_filter
         elif pos == "top-left":
-            top_filter = "crop=iw*0.48:ih*0.75:0:0"
-            # Hide left-side streamer by zooming into right/center 68% of the gameplay screen
-            bottom_filter = "crop=iw*0.68:ih:iw*0.32:0"
+            # Streamer camera box is in top-left corner
+            top_filter = "crop=iw*0.30:ih*0.40:0:0"
+            bottom_filter = "crop=iw*0.72:ih:iw*0.28:0"
             return top_filter, bottom_filter
         elif pos == "bottom-left":
-            top_filter = "crop=iw*0.48:ih*0.75:0:ih*0.25"
-            bottom_filter = "crop=iw*0.68:ih:iw*0.32:0"
+            # Streamer camera box is in bottom-left corner
+            top_filter = "crop=iw*0.30:ih*0.40:0:ih*0.60"
+            bottom_filter = "crop=iw*0.72:ih:iw*0.28:0"
             return top_filter, bottom_filter
         elif pos == "center":
+            # Streamer is full-screen or centered (e.g. Just Chatting / Reaction)
             top_filter = "crop=ih*9/16:ih:(iw-ih*9/16)/2:0"
             bottom_filter = "crop=iw*0.75:ih*0.75:(iw-iw*0.75)/2:(ih-ih*0.75)/2"
             return top_filter, bottom_filter
 
-        # "auto" detection using skin density sampling
+        # If streamer channel is ishowspeed, default to mid-left Speed layout directly
+        channel_name = getattr(self.config, "channel", "").lower()
+        if "speed" in channel_name:
+            logger.info("Using IShowSpeed mid-left facecam layout preset")
+            return "crop=iw*0.21:ih*0.23:0:ih*0.41", "crop=iw*0.76:ih:iw*0.22:0"
+
+        # "auto" detection: Sample a frame and locate the streamer camera box via skin density
         try:
             import numpy as np
             sample_frame = self.config.temp_dir / f"sample_{int(time.time()*1000)}.jpg"
@@ -77,33 +94,37 @@ class VideoProcessor:
                 skin_mask = (cb >= 77) & (cb <= 127) & (cr >= 133) & (cr <= 173)
                 h, w = skin_mask.shape
 
+                # Check regions where stream camera boxes live
                 scores = {
+                    "mid-left": int(skin_mask[int(h*0.35):int(h*0.68), 0:int(w*0.25)].sum()),
+                    "top-right": int(skin_mask[0:int(h*0.45), int(w*0.65):w].sum()),
+                    "bottom-right": int(skin_mask[int(h*0.55):h, int(w*0.65):w].sum()),
+                    "top-left": int(skin_mask[0:int(h*0.45), 0:int(w*0.35)].sum()),
+                    "bottom-left": int(skin_mask[int(h*0.55):h, 0:int(w*0.35)].sum()),
                     "center": int(skin_mask[h//4:3*h//4, w//4:3*w//4].sum()),
-                    "top-right": int(skin_mask[0:h//2, int(w*0.55):w].sum()),
-                    "bottom-right": int(skin_mask[h//2:h, int(w*0.55):w].sum()),
-                    "top-left": int(skin_mask[0:h//2, 0:int(w*0.45)].sum()),
-                    "bottom-left": int(skin_mask[h//2:h, 0:int(w*0.45)].sum()),
                 }
                 sample_frame.unlink(missing_ok=True)
                 
-                # Resolves Pyright overload ambiguity cleanly with lambda
                 best_loc = max(scores.keys(), key=lambda k: scores[k])
-                logger.info(f"Auto-detected streamer location: {best_loc}")
+                logger.info(f"Auto-detected streamer camera box position: {best_loc}")
 
-                if best_loc == "top-right":
-                    return "crop=iw*0.48:ih*0.75:iw*0.52:0", "crop=iw*0.68:ih:0:0"
+                if best_loc == "mid-left":
+                    return "crop=iw*0.21:ih*0.23:0:ih*0.41", "crop=iw*0.76:ih:iw*0.22:0"
+                elif best_loc == "top-right":
+                    return "crop=iw*0.30:ih*0.40:iw*0.70:0", "crop=iw*0.72:ih:0:0"
                 elif best_loc == "bottom-right":
-                    return "crop=iw*0.48:ih*0.75:iw*0.52:ih*0.25", "crop=iw*0.68:ih:0:0"
+                    return "crop=iw*0.30:ih*0.40:iw*0.70:ih*0.60", "crop=iw*0.72:ih:0:0"
                 elif best_loc == "top-left":
-                    return "crop=iw*0.48:ih*0.75:0:0", "crop=iw*0.68:ih:iw*0.32:0"
+                    return "crop=iw*0.30:ih*0.40:0:0", "crop=iw*0.72:ih:iw*0.28:0"
                 elif best_loc == "bottom-left":
-                    return "crop=iw*0.48:ih*0.75:0:ih*0.25", "crop=iw*0.68:ih:iw*0.32:0"
+                    return "crop=iw*0.30:ih*0.40:0:ih*0.60", "crop=iw*0.72:ih:iw*0.28:0"
                 else:
-                    return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0", "crop=iw*0.72:ih*0.72:(iw-iw*0.72)/2:(ih-ih*0.72)/2"
+                    return "crop=iw*0.21:ih*0.23:0:ih*0.41", "crop=iw*0.76:ih:iw*0.22:0"
         except Exception as e:
-            logger.debug(f"Auto facecam detection exception, falling back to default split: {e}")
+            logger.debug(f"Auto camera detection exception, defaulting to mid-left camera box: {e}")
 
-        return "crop=ih*9/16:ih:(iw-ih*9/16)/2:0", "crop=iw*0.70:ih:0:0"
+        # Standard gaming stream default
+        return "crop=iw*0.21:ih*0.23:0:ih*0.41", "crop=iw*0.76:ih:iw*0.22:0"
 
     def render_vertical_clip(
         self,
@@ -132,8 +153,8 @@ class VideoProcessor:
             # Check chosen layout mode
             if getattr(self.config, "video_layout", "split") == "split":
                 # SPLIT LAYOUT:
-                # Top half (1080x960): Streamer facecam scene
-                # Bottom half (1080x960): Gameplay zoomed in so the streamer camera is hidden
+                # Top half (1080x960): Streamer camera box (isolated & scaled to fill top half)
+                # Bottom half (1080x960): Gameplay (the rest of the screen with camera box cropped out)
                 top_crop, bottom_crop = self.get_layout_crops(raw_clip_path)
                 divider_col = getattr(self.config, "divider_color", "yellow")
                 divider_filter = (

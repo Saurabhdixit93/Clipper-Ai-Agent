@@ -229,7 +229,7 @@ def main():
     parser.add_argument("--url", type=str, default="", help="Direct Twitch or YouTube stream link (e.g. https://youtube.com/live/xyz or https://twitch.tv/xyz)")
     parser.add_argument("--channel", type=str, default="ishowspeed", help="Twitch channel or streamer name (default: ishowspeed)")
     parser.add_argument("--layout", type=str, choices=["split", "fit_blur"], default="split", help="Video layout: split (top streamer, bottom game) or fit_blur (default: split)")
-    parser.add_argument("--facecam", type=str, choices=["auto", "top-right", "bottom-right", "top-left", "bottom-left", "center"], default="auto", help="Streamer facecam position for split layout (default: auto)")
+    parser.add_argument("--facecam", type=str, choices=["auto", "speed", "mid-left", "top-right", "bottom-right", "top-left", "bottom-left", "center"], default="auto", help="Streamer facecam position for split layout (default: auto, 'speed' or 'mid-left' for IShowSpeed layout)")
     parser.add_argument("--divider", type=str, choices=["yellow", "white", "cyan", "none"], default="yellow", help="Split screen divider line color (default: yellow)")
     parser.add_argument("--quality", type=str, default="720p,720p60,best", help="Preferred stream quality")
     parser.add_argument("--warmup", type=int, default=300, help="Warmup duration in seconds before triggers")
