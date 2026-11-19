@@ -2,4 +2,9 @@ streamlink>=8.6.3
 faster-whisper>=1.2.1
 requests>=2.34.2
 pillow>=13.0.0
+numpy>=2.0.0
+google-api-python-client>=2.200.0
+google-auth>=2.35.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
 
